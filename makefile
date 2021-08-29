@@ -1,10 +1,10 @@
-Lox: lox/Lox.class
+Lox: com/craftinginterpreters/lox/Lox.class
 
-lox/Lox.class: lox/Lox.java
-	javac -g com.craftinginterpreters.lox lox/*.java
+com/craftinginterpreters/lox/Lox.class: com/craftinginterpreters/lox/*.java
+	javac -g com/craftinginterpreters/lox/*.java
 
-run: lox/Lox.class
-	java lox/Lox
+run: com/craftinginterpreters/lox/Lox.class
+	java com/craftinginterpreters/lox/Lox
 
 clean: 
-	rm lox/*.class
+	rm com/craftinginterpreters/lox/*.class
