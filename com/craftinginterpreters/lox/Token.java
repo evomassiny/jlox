@@ -2,8 +2,11 @@ package com.craftinginterpreters.lox;
 
 class Token {
     final TokenType type;
+    // original matched string
     final String lexeme;
+    // value for terminal
     final Object literal;
+    // line in source where this token was scanned
     final int line;
 
     Token(TokenType type, String lexeme, Object literal, int line) {
