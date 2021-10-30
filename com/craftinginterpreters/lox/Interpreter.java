@@ -3,11 +3,17 @@ package com.craftinginterpreters.lox;
 class Interpreter implements Expr.Visitor<Object> {
 
 
+    /**
+     * Execute Literal expressions.
+     */
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
     }
 
+    /**
+     * Execute Binary expressions.
+     */
     @Override
     public Object visitBinaryExpr(Expr.Binary expr) {
         Object right = this.evaluate(expr.right);
@@ -50,11 +56,17 @@ class Interpreter implements Expr.Visitor<Object> {
         return null;
     }
 
+    /**
+     * Execute Group expressions.
+     */
     @Override
     public Object visitGroupingExpr(Expr.Grouping expr) {
         return this.evaluate(expr.expression);
     }
 
+    /**
+     * Execute Unary expressions.
+     */
     @Override
     public Object visitUnaryExpr(Expr.Unary expr) {
         Object right = this.evaluate(expr.right);
@@ -68,10 +80,16 @@ class Interpreter implements Expr.Visitor<Object> {
         return null; // unreachable
     }
 
+    /**
+     * Evaluate expression
+     */
     private Object evaluate(Expr expr) {
         return expr.accept(this);
     }
 
+    /**
+     * Evaluate an Object into a Boolean
+     */
     private boolean isThruthy(Object object) {
         if (object == null) return false;
         if (object instanceof Boolean) return (boolean)object;
@@ -84,16 +102,25 @@ class Interpreter implements Expr.Visitor<Object> {
         return left.equals(right);
     }
 
+    /**
+     * Assert that the object `operand` type can be evaluated as a number.
+     */
     private void checkNumberOperand(Token operator, Object operand) {
         if (operand instanceof Double) return;
         throw new RuntimeError(operator, "Operand must be a number.");
     }
 
+    /**
+     * Assert that boths objects `left` and `right` type can be evaluated as numbers.
+     */
     private void checkNumberOperands(Token operator, Object left, Object right) {
         if (left instanceof Double && right instanceof Double) return;
         throw new RuntimeError(operator, "Operands must be a number.");
     }
 
+    /**
+     * Evalute `expr` and print the result.
+     */
     public void interprete(Expr expr) {
         try {
             Object value = this.evaluate(expr);

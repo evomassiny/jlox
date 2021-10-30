@@ -18,7 +18,8 @@ public class GenerateAst {
         String outputDir = args[0];
         defineAst(
                 outputDir,
-                "Expr", Arrays.asList(
+                "Expr", 
+                Arrays.asList(
                     "Binary     : Expr left, Token operator, Expr right",
                     "Grouping   : Expr expression",
                     "Literal    : Object value",
@@ -59,9 +60,14 @@ public class GenerateAst {
     private static void defineType(PrintWriter writer, String baseName, String className, String fieldList) throws IOException {
         String tab = "    ";
         writer.println(tab + "static class " + className + " extends " + baseName + " {");
+        // attributes
+        String[] fields = fieldList.split(", "); // item contains "{type} {attribute name}"
+        for (String field: fields) {
+            writer.println(tab + tab + "final " + field +";");
+        }
+        writer.println();
         // Constructor
         writer.println(tab + tab + className + "(" + fieldList +") {");
-        String[] fields = fieldList.split(", "); // item contains "{type} {attribute name}"
         for (String field: fields) {
             String name = field.split(" ")[1];
             writer.println(tab + tab + tab + "this." + name + " = " + name + ";");
@@ -74,11 +80,6 @@ public class GenerateAst {
         writer.println(tab + tab + tab + "return visitor.visit" + className + baseName + "(this);");
         writer.println(tab + tab + "}");
         writer.println();
-        
-        // attributes
-        for (String field: fields) {
-            writer.println(tab + tab + "final " + field +";");
-        }
         
         writer.println(tab + "}");
         writer.println();
