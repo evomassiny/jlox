@@ -16,16 +16,33 @@ public class GenerateAst {
         }
 
         String outputDir = args[0];
+
+        // Expr.java
         defineAst(
-                outputDir,
-                "Expr", 
-                Arrays.asList(
-                    "Binary     : Expr left, Token operator, Expr right",
-                    "Grouping   : Expr expression",
-                    "Literal    : Object value",
-                    "Unary      : Token operator, Expr right"
-                    )
-                );
+            outputDir,
+            "Expr", 
+            Arrays.asList(
+                "Binary     : Expr left, Token operator, Expr right",
+                "Grouping   : Expr expression",
+                "Literal    : Object value",
+                "Variable   : Token name",
+                "Assign     : Token name, Expr value",
+                "Unary      : Token operator, Expr right"
+            )
+        );
+
+        // Stmt.java
+        defineAst(
+            outputDir,
+            "Stmt", 
+            Arrays.asList(
+                // ClassName: FieldType fieldName
+                "Block      : List<Stmt> statements",
+                "Expression : Expr expression",
+                "Print      : Expr expression",
+                "Var        : Token name, Expr initializer"
+            )
+        );
     }
 
     private static void defineAst(String outputDir, String baseName, List<String> types) throws IOException {

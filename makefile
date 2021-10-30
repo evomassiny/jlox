@@ -11,5 +11,8 @@ com/craftinginterpreters/tool/GenerateAst.class: com/craftinginterpreters/tool/G
 run: com/craftinginterpreters/lox/Lox.class
 	java com/craftinginterpreters/lox/Lox
 
+run_generate_ast: com/craftinginterpreters/tool/GenerateAst.class
+	java com.craftinginterpreters.tool.GenerateAst com/craftinginterpreters/lox/
+
 clean: 
 	rm com/craftinginterpreters/lox/*.class

@@ -1,7 +1,10 @@
 package com.craftinginterpreters.lox;
 
-class Interpreter implements Expr.Visitor<Object> {
+import java.util.List;
 
+class Interpreter implements Expr.Visitor<Object>,
+                             Stmt.Visitor<Void> {
+    private Environment environment = new Environment();
 
     /**
      * Execute Literal expressions.
@@ -9,6 +12,14 @@ class Interpreter implements Expr.Visitor<Object> {
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
+    }
+
+    /**
+     * Execute a "Variable" expression, basically load its value.
+     */
+    @Override
+    public Object visitVariableExpr(Expr.Variable expr) {
+        return this.environment.get(expr.name);
     }
 
     /**
@@ -65,6 +76,16 @@ class Interpreter implements Expr.Visitor<Object> {
     }
 
     /**
+     * Execute Assign expressions.
+     */
+    @Override
+    public Object visitAssignExpr(Expr.Assign expr) {
+        Object value = this.evaluate(expr.value);
+        this.environment.assign(expr.name, value);
+        return value;
+    }
+
+    /**
      * Execute Unary expressions.
      */
     @Override
@@ -80,11 +101,65 @@ class Interpreter implements Expr.Visitor<Object> {
         return null; // unreachable
     }
 
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = this.evaluate(stmt.initializer);
+        }
+        this.environment.define(stmt.name.lexeme, value);
+        return null;
+    }
+
     /**
      * Evaluate expression
      */
     private Object evaluate(Expr expr) {
         return expr.accept(this);
+    }
+
+    private void execute(Stmt stmt) {
+        stmt.accept(this);
+    }
+
+    /**
+     * Evaluate a list of statements in the provided environment.
+     */
+    private void executeBlock(List<Stmt> statements, Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+            for(Stmt statement: statements) {
+                this.execute(statement);
+            }
+        } catch (RuntimeError error) {
+
+        } finally {
+            this.environment = previous;
+        }
+    }
+
+    // evaluate block
+    @Override
+    public Void visitBlockStmt(Stmt.Block block) {
+        // create new env, linked to the current one.
+        this.executeBlock(block.statements, new Environment(this.environment));
+        return null;
+    }
+
+    // evaluate Statement
+    @Override
+    public Void visitExpressionStmt(Stmt.Expression stmt) {
+        this.evaluate(stmt.expression);
+        return null;
+    }
+
+    // evaluate Print Statement
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object value = this.evaluate(stmt.expression);
+        System.out.println(this.stringify(value));
+        return null;
     }
 
     /**
@@ -121,10 +196,11 @@ class Interpreter implements Expr.Visitor<Object> {
     /**
      * Evalute `expr` and print the result.
      */
-    public void interprete(Expr expr) {
+    public void interpret(List<Stmt> statements) {
         try {
-            Object value = this.evaluate(expr);
-            System.out.println(this.stringify(value));
+            for (Stmt statement: statements) {
+                this.execute(statement);
+            }
         } catch (RuntimeError error) {
             Lox.runtimeError(error);
         }

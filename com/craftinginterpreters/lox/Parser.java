@@ -1,5 +1,6 @@
 package com.craftinginterpreters.lox;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.craftinginterpreters.lox.TokenType.*;
@@ -10,21 +11,103 @@ class Parser {
     private final List<Token> tokens;
     private int current = 0;
 
-    Parser(List<Token> tokens) {
+    public Parser(List<Token> tokens) {
         this.tokens = tokens;
     }
 
-    Expr parse() {
-        try {
-            return this.expression();
-        } catch (ParseError error) {
-            return null;
+
+    /**
+     * Main function: parse a list of tokens into 
+     * a collection of Statements.
+     */
+    public List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<Stmt>();
+        while (!this.isAtEnd()) {
+            statements.add(this.declaration());
         }
+        return statements;
+    }
+
+    // statement -> exprStmt | printStmt | block;
+    private Stmt statement() {
+        if (this.match(PRINT)) {
+            return this.printStatement();
+        }
+        if (this.match(LEFT_BRACE)) {
+            return new Stmt.Block(this.block());
+        }
+        return this.expressionStatement();
+    }
+
+    // printStmt -> "print" expression ";" ;
+    private Stmt printStatement() {
+        Expr value = this.expression();
+        this.consume(SEMICOLON, "Expect ';' after value.");
+        return new Stmt.Print(value);
+
+    }
+
+    // varDecl -> 'var' IDENTIFIER ( "=" expression )? ';' ; 
+    private Stmt varDeclaration() {
+        Token name = this.consume(IDENTIFIER, "Expect variable name.");
+        
+        Expr initializer = null;
+        if (this.match(EQUAL)) {
+            initializer = this.expression();
+        }
+        this.consume(SEMICOLON, "Expect ';' after var declaration.");
+        return new Stmt.Var(name, initializer);
+    }
+
+    // exprStmt -> expression ';' ;
+    private Stmt expressionStatement() {
+        Expr expr = this.expression();
+        this.consume(SEMICOLON, "Expect ';' after expression.");
+        return new Stmt.Expression(expr);
+    }
+
+   // block -> "{" declaration * "}"' ;
+    private List<Stmt> block() {
+        List<Stmt> statements = new ArrayList<Stmt>();
+        while (!this.check(RIGHT_BRACE) && !this.isAtEnd()) {
+            statements.add(this.declaration());
+        }
+        this.consume(RIGHT_BRACE, "Expect '}' after block.");
+        return statements;
     }
 
     // expression -> equality
     private Expr expression() {
-        return this.equality();
+        return this.assignment();
+    }
+
+    // assignment -> IDENTIFIER "=" assignment | equality ;
+    private Expr assignment() {
+        // parse expr, at this point we don't know if it's an
+        // l-value (binding label) or an r-value (value)
+        Expr expr = this.equality();
+
+        if (this.match(IDENTIFIER)) {
+            Token equals = this.previous();
+            Expr r_value = this.assignment();
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable)expr).name;
+                return new Expr.Assign(name, r_value);
+            }
+            this.error(equals, "Invalid assignement target.");
+        }
+        return expr;
+    }
+
+    private Stmt declaration() {
+        try {
+            if (this.match(VAR)) 
+                return this.varDeclaration();
+            return this.statement();
+        } catch (ParseError error) {
+            this.synchronize(); // move to next valid expr/stmt
+            return null;
+        }
     }
 
     // equality -> comparison ( ( "!=" | "==" ) comparison )* ;
@@ -86,7 +169,7 @@ class Parser {
         return this.primary();
     }
 
-    // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")";
+    // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER;
     private Expr primary() {
         if (this.match(FALSE)) return new Expr.Literal(false);
         if (this.match(TRUE)) return new Expr.Literal(true);
@@ -95,6 +178,9 @@ class Parser {
         if (this.match(NUMBER, STRING)) {
             return new Expr.Literal(this.previous().literal);
         }
+
+        if (this.match(IDENTIFIER)) return new Expr.Variable(this.previous());
+
         if (this.match(LEFT_PAREN)) {
             // parse sub expression
             Expr expr = this.expression();

@@ -85,6 +85,12 @@ class Scanner {
             case '*':
                 this.addToken(STAR);
                 break;
+            case '{':
+                this.addToken(LEFT_BRACE);
+                break;
+            case '}':
+                this.addToken(RIGHT_BRACE);
+                break;
                 // div or comment
             case '/':
                 if (match('/')) {
