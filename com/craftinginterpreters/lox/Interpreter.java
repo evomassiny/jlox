@@ -15,6 +15,27 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     /**
+     * Execute Logical expressions (OR / AND).
+     */
+    @Override
+    public Object visitLogicalExpr(Expr.Logical expr) {
+        Object left = this.evaluate(expr.left);
+
+        if (expr.operator.type == TokenType.OR) {
+            if (this.isThruthy(left)) return left;
+        } else if (expr.operator.type == TokenType.AND ) {
+            if (!this.isThruthy(left)) return left;
+        } else {
+            throw new RuntimeError(
+                    expr.operator,
+                    "Operator does not represents a Logical expression."
+                    );
+        }
+        // python style, return any value kind.
+        return this.evaluate(expr.right);
+    }
+
+    /**
      * Execute a "Variable" expression, basically load its value.
      */
     @Override
@@ -118,6 +139,9 @@ class Interpreter implements Expr.Visitor<Object>,
         return expr.accept(this);
     }
 
+    /**
+     * Evaluate a statement, no matter its kind.
+     */
     private void execute(Stmt stmt) {
         stmt.accept(this);
     }
@@ -144,6 +168,20 @@ class Interpreter implements Expr.Visitor<Object>,
     public Void visitBlockStmt(Stmt.Block block) {
         // create new env, linked to the current one.
         this.executeBlock(block.statements, new Environment(this.environment));
+        return null;
+    }
+    
+    // evaluate if condtion, and the corresponding block
+    @Override
+    public Void visitIfStmt(Stmt.If stmt) {
+        // evaluate condition and cast as bool
+        if (this.isThruthy(this.evaluate(stmt.condition))) {
+            this.execute(stmt.thenBranch);
+        } else {
+            if (stmt.elseBranch != null) {
+                this.execute(stmt.elseBranch);
+            }
+        }
         return null;
     }
 

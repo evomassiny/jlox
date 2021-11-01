@@ -25,6 +25,7 @@ public class GenerateAst {
                 "Binary     : Expr left, Token operator, Expr right",
                 "Grouping   : Expr expression",
                 "Literal    : Object value",
+                "Logical    : Expr left, Token operator, Expr right",
                 "Variable   : Token name",
                 "Assign     : Token name, Expr value",
                 "Unary      : Token operator, Expr right"
@@ -38,6 +39,7 @@ public class GenerateAst {
             Arrays.asList(
                 // ClassName: FieldType fieldName
                 "Block      : List<Stmt> statements",
+                "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",
                 "Expression : Expr expression",
                 "Print      : Expr expression",
                 "Var        : Token name, Expr initializer"

@@ -28,8 +28,11 @@ class Parser {
         return statements;
     }
 
-    // statement -> exprStmt | printStmt | block;
+    // BNF: statement -> exprStmt | ifStmt | printStmt | block;
     private Stmt statement() {
+        if (this.match(IF)) {
+            return this.ifStatement();
+        }
         if (this.match(PRINT)) {
             return this.printStatement();
         }
@@ -39,7 +42,23 @@ class Parser {
         return this.expressionStatement();
     }
 
-    // printStmt -> "print" expression ";" ;
+    // BNF: ifStmt -> "if" "(" expression ")" statement ("else" statement)? ; 
+    private Stmt ifStatement() {
+        this.consume(LEFT_PAREN, "Expect '(' after if.");
+        Expr condition = this.expression();
+        this.consume(RIGHT_PAREN, "Expect ')' after if condition.");
+        // this will parse any sub if/else first, which means:
+        // `if (foo) if (bar) else { // else branch }
+        // the else branch will be attached to the closest if: "if (bar)".
+        Stmt thenBranch = this.statement();
+        Stmt elseBranch = null;
+        if (this.match(ELSE)) {
+            elseBranch = this.statement();
+        }
+        return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
+    // BNF: printStmt -> "print" expression ";" ;
     private Stmt printStatement() {
         Expr value = this.expression();
         this.consume(SEMICOLON, "Expect ';' after value.");
@@ -47,7 +66,7 @@ class Parser {
 
     }
 
-    // varDecl -> 'var' IDENTIFIER ( "=" expression )? ';' ; 
+    // BNF: varDecl -> 'var' IDENTIFIER ( "=" expression )? ';' ; 
     private Stmt varDeclaration() {
         Token name = this.consume(IDENTIFIER, "Expect variable name.");
         
@@ -59,14 +78,14 @@ class Parser {
         return new Stmt.Var(name, initializer);
     }
 
-    // exprStmt -> expression ';' ;
+    // BNF: exprStmt -> expression ';' ;
     private Stmt expressionStatement() {
         Expr expr = this.expression();
         this.consume(SEMICOLON, "Expect ';' after expression.");
         return new Stmt.Expression(expr);
     }
 
-   // block -> "{" declaration * "}"' ;
+    // BNF: block -> "{" declaration * "}"' ;
     private List<Stmt> block() {
         List<Stmt> statements = new ArrayList<Stmt>();
         while (!this.check(RIGHT_BRACE) && !this.isAtEnd()) {
@@ -76,16 +95,16 @@ class Parser {
         return statements;
     }
 
-    // expression -> equality
+    // BNF: expression -> equality ;
     private Expr expression() {
         return this.assignment();
     }
 
-    // assignment -> IDENTIFIER "=" assignment | equality ;
+    // BNF: assignment -> IDENTIFIER "=" assignment | logic_or ;
     private Expr assignment() {
         // parse expr, at this point we don't know if it's an
         // l-value (binding label) or an r-value (value)
-        Expr expr = this.equality();
+        Expr expr = this.or();
 
         if (this.match(IDENTIFIER)) {
             Token equals = this.previous();
@@ -98,7 +117,8 @@ class Parser {
         }
         return expr;
     }
-
+    
+    // BNF: declaration -> varDecl | statement ;
     private Stmt declaration() {
         try {
             if (this.match(VAR)) 
@@ -110,7 +130,7 @@ class Parser {
         }
     }
 
-    // equality -> comparison ( ( "!=" | "==" ) comparison )* ;
+    // BNF: equality -> comparison ( ( "!=" | "==" ) comparison )* ;
     private Expr equality() {
         Expr expr = this.comparison();
 
@@ -123,8 +143,30 @@ class Parser {
         return expr;
     }
 
+    // BNF: logic_or -> logic_and ( "or" logic_or )* ;
+    private Expr or() {
+        Expr expr = this.and();
+        while (this.match(OR)) {
+            Token operator = this.previous();
+            Expr right = this.or();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+        return expr;
+    }
 
-    // comparison -> term ( ( ">" | ">=" | "<" | "<="  ) term )* ;
+    // BNF: logic_and -> equality ( "and" equality )* ;
+    private Expr and() {
+        Expr expr = this.equality();
+        while (this.match(AND)) {
+            Token operator = this.previous();
+            Expr right = this.equality();
+            expr = new Expr.Logical(expr, operator, right);
+        }
+        return expr;
+    }
+
+
+    // BNF: comparison -> term ( ( ">" | ">=" | "<" | "<="  ) term )* ;
     private Expr comparison() {
         Expr expr = this.term();
 
@@ -137,7 +179,7 @@ class Parser {
         return expr;
     }
 
-    // term -> factor ( ( "+" | "-" ) factor)*;
+    // BNF: term -> factor ( ( "+" | "-" ) factor)*;
     private Expr term() {
         Expr expr = this.factor();
         while (this.match(PLUS, MINUS)) {
@@ -148,7 +190,7 @@ class Parser {
         return expr;
     }
 
-    // factor -> unary ( ( "*" | "/" ) unary)*;
+    // BNF: factor -> unary ( ( "*" | "/" ) unary)*;
     private Expr factor() {
         Expr expr = this.unary();
         while (this.match(STAR, SLASH)) {
@@ -159,7 +201,7 @@ class Parser {
         return expr;
     }
 
-    // unary -> ( "!" | "-" ) unary | primary;
+    // BNF: unary -> ( "!" | "-" ) unary | primary;
     private Expr unary() {
         if (this.match(BANG, MINUS)) {
             Token operator = this.previous();
@@ -169,7 +211,7 @@ class Parser {
         return this.primary();
     }
 
-    // primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER;
+    // BNF: primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER;
     private Expr primary() {
         if (this.match(FALSE)) return new Expr.Literal(false);
         if (this.match(TRUE)) return new Expr.Literal(true);
