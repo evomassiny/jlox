@@ -1,6 +1,7 @@
 package com.craftinginterpreters.lox;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.craftinginterpreters.lox.TokenType.*;
@@ -28,8 +29,11 @@ class Parser {
         return statements;
     }
 
-    // BNF: statement -> exprStmt | ifStmt | printStmt | whileStmt | block;
+    // BNF: statement -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block;
     private Stmt statement() {
+        if (this.match(FOR)) {
+            return this.forStatement();
+        }
         if (this.match(IF)) {
             return this.ifStatement();
         }
@@ -43,6 +47,66 @@ class Parser {
             return new Stmt.Block(this.block());
         }
         return this.expressionStatement();
+    }
+
+    // BNF: forStmt -> "for" "(" ( varDecl | exprStmt | ";") expression? ";" expression? ")" statement ;
+    private Stmt forStatement() {
+        // desugar a for loop into a while loop
+        this.consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+        // parse initializer (if any)
+        Stmt initializer;
+        if (this.match(SEMICOLON)) {
+            // for (; ...)
+            initializer = null;
+        } else if (this.match(VAR)) {
+            // for (var truc = machin; ...)
+            initializer = this.varDeclaration();
+        } else {
+            // for (machin; ...)
+            initializer = this.expressionStatement();
+        }
+
+        // parse condition
+        Expr condition = null;
+        if (!this.check(SEMICOLON)) {
+            condition = this.expression();
+        }
+        this.consume(SEMICOLON, "Expect ';' after loop condition.");
+
+        // parse increment
+        Expr increment = null;
+        if (!this.check(RIGHT_PAREN)) {
+            increment = this.expression();
+        }
+        this.consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        // parse body
+        Stmt body = this.statement();
+        // append increment ot its end
+        if (increment != null) {
+            body = new Stmt.Block(
+                Arrays.asList(
+                    body,
+                    new Stmt.Expression(increment)
+                )
+            );
+        }
+        // mock-up body + condtion as while loop
+        if (condition == null) {
+            condition = new Expr.Literal(true);
+        }
+        body = new Stmt.While(condition, body);
+        // prefix while loop with initializer if any.
+        if (initializer != null) {
+            body = new Stmt.Block(
+                Arrays.asList(
+                    initializer,
+                    body
+                )
+            );
+        }
+        return body;
     }
 
     // BNF: ifStmt -> "if" "(" expression ")" statement ("else" statement)? ; 
