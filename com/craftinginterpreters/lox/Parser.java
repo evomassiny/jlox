@@ -28,10 +28,13 @@ class Parser {
         return statements;
     }
 
-    // BNF: statement -> exprStmt | ifStmt | printStmt | block;
+    // BNF: statement -> exprStmt | ifStmt | printStmt | whileStmt | block;
     private Stmt statement() {
         if (this.match(IF)) {
             return this.ifStatement();
+        }
+        if (this.match(WHILE)) {
+            return this.whileStatement();
         }
         if (this.match(PRINT)) {
             return this.printStatement();
@@ -56,6 +59,15 @@ class Parser {
             elseBranch = this.statement();
         }
         return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
+    // BNF: whileStmt -> "while" "(" expression ")" statement ; 
+    private Stmt whileStatement() {
+        this.consume(LEFT_PAREN, "Expect '(' after if.");
+        Expr condition = this.expression();
+        this.consume(RIGHT_PAREN, "Expect ')' after if condition.");
+        Stmt body = this.statement();
+        return new Stmt.While(condition, body);
     }
 
     // BNF: printStmt -> "print" expression ";" ;
@@ -95,7 +107,7 @@ class Parser {
         return statements;
     }
 
-    // BNF: expression -> equality ;
+    // BNF: expression -> assignment ;
     private Expr expression() {
         return this.assignment();
     }
@@ -106,7 +118,7 @@ class Parser {
         // l-value (binding label) or an r-value (value)
         Expr expr = this.or();
 
-        if (this.match(IDENTIFIER)) {
+        if (this.match(EQUAL)) {
             Token equals = this.previous();
             Expr r_value = this.assignment();
             if (expr instanceof Expr.Variable) {
@@ -143,12 +155,12 @@ class Parser {
         return expr;
     }
 
-    // BNF: logic_or -> logic_and ( "or" logic_or )* ;
+    // BNF: logic_or -> logic_and ( "or" logic_and )* ;
     private Expr or() {
         Expr expr = this.and();
         while (this.match(OR)) {
             Token operator = this.previous();
-            Expr right = this.or();
+            Expr right = this.and();
             expr = new Expr.Logical(expr, operator, right);
         }
         return expr;

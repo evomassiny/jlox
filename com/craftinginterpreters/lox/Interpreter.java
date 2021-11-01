@@ -122,16 +122,6 @@ class Interpreter implements Expr.Visitor<Object>,
         return null; // unreachable
     }
 
-    @Override
-    public Void visitVarStmt(Stmt.Var stmt) {
-        Object value = null;
-        if (stmt.initializer != null) {
-            value = this.evaluate(stmt.initializer);
-        }
-        this.environment.define(stmt.name.lexeme, value);
-        return null;
-    }
-
     /**
      * Evaluate expression
      */
@@ -140,10 +130,16 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     /**
-     * Evaluate a statement, no matter its kind.
+     * Execute variable declaration
      */
-    private void execute(Stmt stmt) {
-        stmt.accept(this);
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = this.evaluate(stmt.initializer);
+        }
+        this.environment.define(stmt.name.lexeme, value);
+        return null;
     }
 
     /**
@@ -198,6 +194,22 @@ class Interpreter implements Expr.Visitor<Object>,
         Object value = this.evaluate(stmt.expression);
         System.out.println(this.stringify(value));
         return null;
+    }
+
+    // evaluate While Statement
+    @Override
+    public Void visitWhileStmt(Stmt.While stmt) {
+        while (this.isThruthy(this.evaluate(stmt.condition))) {
+            this.execute(stmt.body); 
+        }
+        return null;
+    }
+
+    /**
+     * Evaluate a statement, no matter its kind.
+     */
+    private void execute(Stmt stmt) {
+        stmt.accept(this);
     }
 
     /**

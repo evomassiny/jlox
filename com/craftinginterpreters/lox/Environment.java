@@ -24,6 +24,7 @@ class Environment {
     public void assign(Token name, Object value) {
         if (this.values.containsKey(name.lexeme)) {
             this.values.put(name.lexeme, value);
+            return;
         }
         // climb the scope chain, `name` could be declared in an outer scope.
         if (this.enclosing != null) {

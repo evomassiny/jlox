@@ -8,7 +8,10 @@ GenerateAst: com/craftinginterpreters/tool/GenerateAst.class
 com/craftinginterpreters/tool/GenerateAst.class: com/craftinginterpreters/tool/GenerateAst.java
 	javac -g com/craftinginterpreters/tool/GenerateAst.java
 
-run: com/craftinginterpreters/lox/Lox.class
+build: com/craftinginterpreters/lox/Lox.class
+	@echo Building lox
+
+run: build
 	java com/craftinginterpreters/lox/Lox
 
 run_generate_ast: com/craftinginterpreters/tool/GenerateAst.class
