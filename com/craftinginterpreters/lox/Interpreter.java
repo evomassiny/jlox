@@ -5,7 +5,7 @@ import java.util.List;
 
 class Interpreter implements Expr.Visitor<Object>,
                              Stmt.Visitor<Void> {
-    private Environment globals = new Environment();
+    public Environment globals = new Environment();
     private Environment environment = globals;
 
     Interpreter() {
@@ -193,7 +193,7 @@ class Interpreter implements Expr.Visitor<Object>,
     /**
      * Evaluate a list of statements in the provided environment.
      */
-    private void executeBlock(List<Stmt> statements, Environment environment) {
+    public void executeBlock(List<Stmt> statements, Environment environment) {
         Environment previous = this.environment;
         try {
             this.environment = environment;
@@ -236,12 +236,30 @@ class Interpreter implements Expr.Visitor<Object>,
         return null;
     }
 
+    // evaluate function declaration
+    @Override
+    public Void visitFunctionStmt(Stmt.Function stmt) {
+        LoxFunction function = new LoxFunction(stmt, this.environment);
+        environment.define(stmt.name.lexeme, function);
+        return null;
+    }
+
     // evaluate Print Statement
     @Override
     public Void visitPrintStmt(Stmt.Print stmt) {
         Object value = this.evaluate(stmt.expression);
         System.out.println(this.stringify(value));
         return null;
+    }
+
+    // evaluate Return Statement
+    @Override
+    public Void visitReturnStmt(Stmt.Return stmt) {
+        Object value = null;
+        if (stmt.value != null) {
+            value = this.evaluate(stmt.value);
+        }
+        throw new Return(value);
     }
 
     // evaluate While Statement

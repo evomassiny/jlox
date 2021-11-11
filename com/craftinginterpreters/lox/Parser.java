@@ -29,7 +29,7 @@ class Parser {
         return statements;
     }
 
-    // BNF: statement -> exprStmt | forStmt | ifStmt | printStmt | whileStmt | block;
+    // BNF: statement -> exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block;
     private Stmt statement() {
         if (this.match(FOR)) {
             return this.forStatement();
@@ -42,6 +42,9 @@ class Parser {
         }
         if (this.match(PRINT)) {
             return this.printStatement();
+        }
+        if (this.match(RETURN)) {
+            return this.returnStatement();
         }
         if (this.match(LEFT_BRACE)) {
             return new Stmt.Block(this.block());
@@ -142,6 +145,17 @@ class Parser {
 
     }
 
+    // BNF: returnStmt -> "return" expression? ";" ;
+    private Stmt returnStatement() {
+        Token keyword = this.previous();
+        Expr value = null;
+        if (!this.check(SEMICOLON)) {
+            value = this.expression();
+        }
+        this.consume(SEMICOLON, "Expect ';' after return value");
+        return new Stmt.Return(keyword, value);
+    }
+
     // BNF: varDecl -> 'var' IDENTIFIER ( "=" expression )? ';' ; 
     private Stmt varDeclaration() {
         Token name = this.consume(IDENTIFIER, "Expect variable name.");
@@ -159,6 +173,27 @@ class Parser {
         Expr expr = this.expression();
         this.consume(SEMICOLON, "Expect ';' after expression.");
         return new Stmt.Expression(expr);
+    }
+
+    // BNF: function -> IDENTIFIER "(" parameters? ")" block ;
+    // BNF: parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
+    private Stmt.Function function(String kind) {
+        Token name = this.consume(IDENTIFIER, "Expect +" + kind + " name.");
+        this.consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+        List<Token> parameters = new ArrayList<Token>();
+        if (!this.check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= 255) {
+                    this.error(this.peek(), "Can't have more than 255 arguments");
+                }
+                parameters.add(this.consume(IDENTIFIER, "Expect parameter name."));
+            } while (this.match(COMMA));
+        }
+        this.consume(RIGHT_PAREN, "Expect ')' after parameters");
+        // because block() starts after the '{'
+        this.consume(LEFT_BRACE, "Expect '{' before "+ kind + " body."); 
+        List<Stmt> body = this.block();
+        return new Stmt.Function(name, parameters, body);
     }
 
     // BNF: block -> "{" declaration * "}"' ;
@@ -194,9 +229,12 @@ class Parser {
         return expr;
     }
     
-    // BNF: declaration -> varDecl | statement ;
+    // BNF: declaration -> funDecl | varDecl | statement ;
+    // BNF: funDecl -> "fun" function ;
     private Stmt declaration() {
         try {
+            if (this.match(FUN)) 
+                return this.function("function");
             if (this.match(VAR)) 
                 return this.varDeclaration();
             return this.statement();
