@@ -21,6 +21,22 @@ class Environment {
         this.values.put(name, value);
     }
 
+    public Object getAt(int distance, String name) {
+        return this.ancestor(distance).values.get(name);
+    }
+
+    public void assignAt(int distance, Token name, Object value) {
+        this.ancestor(distance).assign(name, value);
+    }
+
+    public Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+        return environment;
+    }
+
     public void assign(Token name, Object value) {
         if (this.values.containsKey(name.lexeme)) {
             this.values.put(name.lexeme, value);

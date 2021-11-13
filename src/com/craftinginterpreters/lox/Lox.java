@@ -56,6 +56,14 @@ class Lox {
         // stop if parsing error
         if (hadError) return;
 
+        // binding resolver pass
+        Resolver resolver = new Resolver(interpreter);
+        resolver.resolve(statements);
+        
+        // stop if resolution error
+        if (hadError) return;
+
+        // interprete the expressions
         try {
             interpreter.interpret(statements);
         } catch (RuntimeError error) {

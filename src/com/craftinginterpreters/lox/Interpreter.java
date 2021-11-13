@@ -1,11 +1,14 @@
 package com.craftinginterpreters.lox;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 class Interpreter implements Expr.Visitor<Object>,
                              Stmt.Visitor<Void> {
     public Environment globals = new Environment();
+    public Map<Expr, Integer> locals = new HashMap<>();
     private Environment environment = globals;
 
     Interpreter() {
@@ -60,11 +63,20 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     /**
-     * Execute a "Variable" expression, basically load its value.
+     * Execute a "Variable" expression: load its value from the 
+     * correct Environment.
      */
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
-        return this.environment.get(expr.name);
+        return this.lookUpVariable(expr.name, expr);
+    }
+
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = this.locals.get(expr);
+        if (distance != null) {
+            return this.environment.getAt(distance, name.lexeme);
+        }
+        return this.globals.get(name);
     }
 
     /**
@@ -150,7 +162,11 @@ class Interpreter implements Expr.Visitor<Object>,
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object value = this.evaluate(expr.value);
-        this.environment.assign(expr.name, value);
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            this.environment.assignAt(distance, expr.name, value);
+        }
+        this.globals.assign(expr.name, value);
         return value;
     }
 
@@ -276,6 +292,14 @@ class Interpreter implements Expr.Visitor<Object>,
      */
     private void execute(Stmt stmt) {
         stmt.accept(this);
+    }
+
+    /**
+     * Store variable to environment offset bindings.
+     * (see Resolver.java)
+     */
+    public void resolve(Expr expr, int depth) {
+        this.locals.put(expr, depth);
     }
 
     /**
