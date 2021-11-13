@@ -56,7 +56,11 @@ class Lox {
         // stop if parsing error
         if (hadError) return;
 
-        interpreter.interpret(statements);
+        try {
+            interpreter.interpret(statements);
+        } catch (RuntimeError error) {
+            runtimeError(error);
+        }
     }
 
     static void error(int line, String message) {

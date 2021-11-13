@@ -1,21 +1,22 @@
+SRC_DIR := src
+BIN_DIR := bin
+
 Lox: com/craftinginterpreters/lox/Lox.class
 
-com/craftinginterpreters/lox/Lox.class: com/craftinginterpreters/lox/*.java
-	javac -g com/craftinginterpreters/lox/*.java
+${BIN_DIR}/com/craftinginterpreters/lox/Lox.class: ${SRC_DIR}/com/craftinginterpreters/lox/*.java
+	javac -sourcepath ${SRC_DIR} -d ${BIN_DIR} ${SRC_DIR}/com/craftinginterpreters/lox/*.java
 
-GenerateAst: com/craftinginterpreters/tool/GenerateAst.class
+${BIN_DIR}/com/craftinginterpreters/tool/GenerateAst.class: ${SRC_DIR}/com/craftinginterpreters/tool/GenerateAst.java
+	javac -sourcepath ${SRC_DIR} -d ${BIN_DIR} ${SRC_DIR}/com/craftinginterpreters/tool/GenerateAst.java
 
-com/craftinginterpreters/tool/GenerateAst.class: com/craftinginterpreters/tool/GenerateAst.java
-	javac -g com/craftinginterpreters/tool/GenerateAst.java
-
-build: com/craftinginterpreters/lox/Lox.class
+build: ${BIN_DIR}/com/craftinginterpreters/lox/Lox.class
 	@echo Building lox
 
 run: build
-	java com/craftinginterpreters/lox/Lox
+	java -cp ${BIN_DIR} com.craftinginterpreters.lox.Lox
 
-run_generate_ast: com/craftinginterpreters/tool/GenerateAst.class
-	java com.craftinginterpreters.tool.GenerateAst com/craftinginterpreters/lox/
+run_generate_ast: ${BIN_DIR}/com/craftinginterpreters/tool/GenerateAst.class
+	java -cp ${BIN_DIR} com.craftinginterpreters.tool.GenerateAst ${SRC_DIR}/com/craftinginterpreters/lox/
 
 clean: 
-	rm com/craftinginterpreters/lox/*.class
+	rm ${BIN_DIR} -rf
