@@ -16,6 +16,10 @@ class Parser {
         this.tokens = tokens;
     }
 
+    private enum FunctionKind {
+        FUNCTION,
+        METHOD,
+    }
 
     /**
      * Main function: parse a list of tokens into 
@@ -177,9 +181,16 @@ class Parser {
 
     // BNF: function -> IDENTIFIER "(" parameters? ")" block ;
     // BNF: parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
-    private Stmt.Function function(String kind) {
-        Token name = this.consume(IDENTIFIER, "Expect +" + kind + " name.");
-        this.consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+    private Stmt.Function function(FunctionKind kind) {
+        // build repr
+        String kindStr = null;
+        if (kind == FunctionKind.FUNCTION) 
+            kindStr = "function";
+        else
+            kindStr = "method";
+
+        Token name = this.consume(IDENTIFIER, "Expect +" + kindStr + " name.");
+        this.consume(LEFT_PAREN, "Expect '(' after " + kindStr + " name.");
         List<Token> parameters = new ArrayList<Token>();
         if (!this.check(RIGHT_PAREN)) {
             do {
@@ -191,7 +202,7 @@ class Parser {
         }
         this.consume(RIGHT_PAREN, "Expect ')' after parameters");
         // because block() starts after the '{'
-        this.consume(LEFT_BRACE, "Expect '{' before "+ kind + " body."); 
+        this.consume(LEFT_BRACE, "Expect '{' before "+ kindStr + " body."); 
         List<Stmt> body = this.block();
         return new Stmt.Function(name, parameters, body);
     }
@@ -211,7 +222,7 @@ class Parser {
         return this.assignment();
     }
 
-    // BNF: assignment -> IDENTIFIER "=" assignment | logic_or ;
+    // BNF: assignment -> ( call "." )? IDENTIFIER "=" assignment | logic_or ;
     private Expr assignment() {
         // parse expr, at this point we don't know if it's an
         // l-value (binding label) or an r-value (value)
@@ -223,18 +234,23 @@ class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable)expr).name;
                 return new Expr.Assign(name, r_value);
+            } else if (expr instanceof Expr.Get) {
+                Expr.Get get = (Expr.Get)expr;
+                return new Expr.Set(get.object, get.name, r_value);
             }
             this.error(equals, "Invalid assignement target.");
         }
         return expr;
     }
     
-    // BNF: declaration -> funDecl | varDecl | statement ;
+    // BNF: declaration -> classDecl | funDecl | varDecl | statement ;
     // BNF: funDecl -> "fun" function ;
     private Stmt declaration() {
         try {
+            if (this.match(CLASS)) 
+                return this.classDeclaration();
             if (this.match(FUN)) 
-                return this.function("function");
+                return this.function(FunctionKind.FUNCTION);
             if (this.match(VAR)) 
                 return this.varDeclaration();
             return this.statement();
@@ -242,6 +258,20 @@ class Parser {
             this.synchronize(); // move to next valid expr/stmt
             return null;
         }
+    }
+
+    // BNF: classDecl -> "class" IDENTIFIER "{" function* "}" ;
+    private Stmt classDeclaration() {
+        Token name = this.consume(IDENTIFIER, "Expect class name");
+        this.consume(LEFT_BRACE, "Expect '{' after class declaration.");
+
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!this.check(RIGHT_BRACE) && !this.isAtEnd()) {
+            methods.add(this.function(FunctionKind.METHOD));
+        }
+        this.consume(RIGHT_BRACE, "Expect '}' after class body.");
+
+        return new Stmt.Class(name, methods);
     }
 
     // BNF: equality -> comparison ( ( "!=" | "==" ) comparison )* ;
@@ -325,7 +355,7 @@ class Parser {
         return this.call();
     }
 
-    // BNF: call -> primary ( "(" arguments? ")" )* ;
+    // BNF: call -> primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
     // BNF: arguments -> expression ( "," expression )* ;
     private Expr call() {
         Expr expr = this.primary();
@@ -333,6 +363,9 @@ class Parser {
             // handle successive calls
             if (this.match(LEFT_PAREN)) {
                 expr = this.finishCall(expr);
+            } else if (this.match(DOT)) {
+                Token name = this.consume(IDENTIFIER, "Expect property name after '.'.");
+                expr = new Expr.Get(expr, name);
             } else {
                 break;
             }
@@ -366,6 +399,7 @@ class Parser {
             return new Expr.Literal(this.previous().literal);
         }
 
+        if (this.match(THIS)) return new Expr.This(this.previous());
         if (this.match(IDENTIFIER)) return new Expr.Variable(this.previous());
 
         if (this.match(LEFT_PAREN)) {

@@ -63,6 +63,29 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     /**
+     * Execute assign on object property
+     */
+    @Override
+    public Object visitSetExpr(Expr.Set expr) {
+        Object object = this.evaluate(expr.object);
+        if (!(object instanceof LoxInstance)) {
+            throw new RuntimeError(expr.name, "Only instances have fields.");
+        }
+        Object value = this.evaluate(expr.value);
+        ((LoxInstance) object).set(expr.name, value);
+        return value;
+    }
+
+    /**
+     * Lookup "this" expression
+     */
+    @Override
+    public Object visitThisExpr(Expr.This expr) {
+        return this.lookUpVariable(expr.keyword, expr);
+    }
+
+
+    /**
      * Execute a "Variable" expression: load its value from the 
      * correct Environment.
      */
@@ -148,6 +171,19 @@ class Interpreter implements Expr.Visitor<Object>,
         return function.call(this, arguments);
     }
 
+
+    /**
+     * Execute '.' lookup.
+     */
+    @Override
+    public Object visitGetExpr(Expr.Get expr) {
+        Object object = this.evaluate(expr.object);
+        if (object instanceof LoxInstance) {
+            return ((LoxInstance) object).get(expr.name);
+        }
+        throw new RuntimeError(expr.name, "Only instances have properties.");
+    }
+
     /**
      * Execute Group expressions.
      */
@@ -217,7 +253,7 @@ class Interpreter implements Expr.Visitor<Object>,
                 this.execute(statement);
             }
         } catch (RuntimeError error) {
-
+            Lox.runtimeError(error);
         } finally {
             this.environment = previous;
         }
@@ -231,6 +267,24 @@ class Interpreter implements Expr.Visitor<Object>,
         return null;
     }
     
+    // evaluate Class declaration
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        this.environment.define(stmt.name.lexeme, null);
+        Map<String, LoxFunction> methods = new HashMap<>();
+        for (Stmt.Function method: stmt.methods) {
+            LoxFunction function = new LoxFunction(
+                method,
+                environment, 
+                method.name.lexeme.equals("init")
+            );
+            methods.put(method.name.lexeme, function);
+        }
+        LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
+        environment.assign(stmt.name, klass);
+        return null;
+    }
+
     // evaluate if condtion, and the corresponding block
     @Override
     public Void visitIfStmt(Stmt.If stmt) {
@@ -255,7 +309,7 @@ class Interpreter implements Expr.Visitor<Object>,
     // evaluate function declaration
     @Override
     public Void visitFunctionStmt(Stmt.Function stmt) {
-        LoxFunction function = new LoxFunction(stmt, this.environment);
+        LoxFunction function = new LoxFunction(stmt, this.environment, false);
         environment.define(stmt.name.lexeme, function);
         return null;
     }

@@ -1,16 +1,16 @@
 /*
  * This Class resolves variable bindings: 
- * It bind each `Variable` expressions to a scope offset, relative to the execution
+ * It binds each `Variable` expressions to a scope offset, relative to the execution
  * scope.
  *
- * Because lox use a lexical scope, we can build those offset statically,
+ * Because lox uses a lexical scope, we can build those offset statically,
  * even before creating the environments themselves.
  *
  * To do so, we parse the AST in the order of its lexical definition,
  * not in the execution order.
  *
  * While we are traversing the AST, we opportinistically also check for
- * return statement declared in the global scope.
+ * return statement and "this" expressions declared in the global scope.
  */
 
 package com.craftinginterpreters.lox;
@@ -21,18 +21,20 @@ import java.util.List;
 import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
-    // stores all binding resolution in a map inside the interpretor,
+    // stores all binding resolution in a map inside the `interpretor`,
     // the map itself is indexed by expression,
     // which means whenever the interpreter wants to resolve a variable,
     // it will know in which scope it must perform the lookup, 
     // (relative to the execution current scope).
     private final Interpreter interpreter;
     // one map per scope,
-    // key are the variable name, value represent either or not the
+    // keys are the variable name, values represent either or not the
     // variable was initialized.
     private final Stack<HashMap<String, Boolean>> scopes = new Stack<>();
-    // either we are traversing a function, or we are in the global scope
+    // either we are traversing a function definition, or we are in the global scope
     private FunctionType currentFunction = FunctionType.NONE;
+    // either we are traversing a Class definition, or we are in the global scope
+    private ClassType currentClass = ClassType.NONE;
 
     Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
@@ -40,7 +42,14 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     private enum FunctionType {
         NONE,
-        FUNCTION
+        FUNCTION,
+        INITIALIZER,
+        METHOD
+    }
+
+    private enum ClassType {
+        NONE,
+        CLASS
     }
 
     private void beginScope() {
@@ -77,6 +86,29 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        ClassType enclosingClass = this.currentClass;
+        this.currentClass = ClassType.CLASS;
+
+        this.declare(stmt.name);
+        this.define(stmt.name);
+
+        this.beginScope();
+        this.scopes.peek().put("this", true);
+
+        for (Stmt.Function method :  stmt.methods) {
+            FunctionType declaration = FunctionType.METHOD;
+            if (method.name.lexeme.equals("init")) {
+                declaration = FunctionType.INITIALIZER;
+            }
+            this.resolveFunction(method, declaration);
+        }
+        this.endScope();
+        this.currentClass = enclosingClass;
+        return null;
+    }
+
+    @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         this.resolve(stmt.expression);
         return null;
@@ -104,6 +136,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             Lox.error(stmt.keyword, "Can't return from top-level code.");
         }
         if (stmt.value != null ) {
+            if (this.currentFunction == FunctionType.INITIALIZER) {
+                Lox.error(stmt.keyword, "Can't return a value from an initializer.");
+            }
             this.resolve(stmt.value);
         }
         return null;
@@ -144,6 +179,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Void visitGetExpr(Expr.Get expr) {
+        // recursively resolve class instance
+        this.resolve(expr.object);
+        return null;
+    }
+
+    @Override
     public Void visitGroupingExpr(Expr.Grouping expr) {
         this.resolve(expr.expression);
         return null;
@@ -158,6 +200,23 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitLogicalExpr(Expr.Logical expr) {
         this.resolve(expr.left);
         this.resolve(expr.right);
+        return null;
+    }
+
+    @Override
+    public Void visitSetExpr(Expr.Set expr) {
+        this.resolve(expr.value);
+        this.resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitThisExpr(Expr.This expr) {
+        if (this.currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword, "Can't use 'this' outside of a class definition.");
+            return null;
+        }
+        this.resolveLocal(expr, expr.keyword);
         return null;
     }
 
