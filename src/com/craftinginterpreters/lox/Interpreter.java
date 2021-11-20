@@ -201,8 +201,9 @@ class Interpreter implements Expr.Visitor<Object>,
         Integer distance = locals.get(expr);
         if (distance != null) {
             this.environment.assignAt(distance, expr.name, value);
+        } else {
+            this.globals.assign(expr.name, value);
         }
-        this.globals.assign(expr.name, value);
         return value;
     }
 
@@ -253,7 +254,7 @@ class Interpreter implements Expr.Visitor<Object>,
                 this.execute(statement);
             }
         } catch (RuntimeError error) {
-            Lox.runtimeError(error);
+            throw error;
         } finally {
             this.environment = previous;
         }
