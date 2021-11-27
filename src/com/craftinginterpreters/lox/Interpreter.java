@@ -82,7 +82,12 @@ class Interpreter implements Expr.Visitor<Object>,
     @Override
     public Object visitSuperExpr(Expr.Super expr) {
        int distance = this.locals.get(expr); 
-       // we defined "super" in the visitClassStmt (upstream though).
+       // we defined "super" in the visitClassStmt using the "superclass" 
+       // attribute of the LoxClass.
+       // Our resolver knows that, so, everytime it hits a "super" identifier, 
+       // its knows it refers to the grandparent of the method.
+       // EG: the scope chaine
+       // (closure env) -> ( + super) -> (+ this) + (fn env)
        LoxClass superclass = (LoxClass)this.environment.getAt(distance, "super");
        LoxInstance instance = (LoxInstance)environment.getAt(distance - 1, "this");
        LoxFunction method = superclass.findMethod(expr.method.lexeme);
