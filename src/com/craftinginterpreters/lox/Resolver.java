@@ -49,7 +49,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     private enum ClassType {
         NONE,
-        CLASS
+        CLASS,
+        SUBCLASS,
     }
 
     private void beginScope() {
@@ -93,6 +94,18 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         this.declare(stmt.name);
         this.define(stmt.name);
 
+        // superclass
+        if (stmt.superclass != null && stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) {
+            Lox.error(stmt.superclass.name, "A class cannot inherit from itself.");
+        }
+        if (stmt.superclass != null) {
+            this.currentClass = ClassType.SUBCLASS;
+            this.resolve(stmt.superclass);
+
+            this.beginScope();
+            this.scopes.peek().put("super", true); // mark "super" as defined
+        }
+
         this.beginScope();
         this.scopes.peek().put("this", true);
 
@@ -104,6 +117,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             this.resolveFunction(method, declaration);
         }
         this.endScope();
+
+        if (stmt.superclass != null) this.endScope();
+
         this.currentClass = enclosingClass;
         return null;
     }
@@ -207,6 +223,18 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitSetExpr(Expr.Set expr) {
         this.resolve(expr.value);
         this.resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitSuperExpr(Expr.Super expr) {
+        if (this.currentClass == ClassType.NONE) {
+            Lox.error(expr.keyword, "Can't use 'super' outside of class.");
+        }
+        if (this.currentClass != ClassType.SUBCLASS) {
+            Lox.error(expr.keyword, "Can't use 'super' in a class without superclass.");
+        }
+        this.resolveLocal(expr, expr.keyword);
         return null;
     }
 

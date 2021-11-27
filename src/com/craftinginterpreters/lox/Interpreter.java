@@ -77,6 +77,22 @@ class Interpreter implements Expr.Visitor<Object>,
     }
 
     /**
+     * Execute "super.$IDENTIFER" expression.
+     */
+    @Override
+    public Object visitSuperExpr(Expr.Super expr) {
+       int distance = this.locals.get(expr); 
+       // we defined "super" in the visitClassStmt (upstream though).
+       LoxClass superclass = (LoxClass)this.environment.getAt(distance, "super");
+       LoxInstance instance = (LoxInstance)environment.getAt(distance - 1, "this");
+       LoxFunction method = superclass.findMethod(expr.method.lexeme);
+       if (method == null) {
+            throw new RuntimeError(expr.method, "Undefined property '"+ expr.method.lexeme +"'.");
+       }
+       return method.bind(instance);
+    }
+
+    /**
      * Lookup "this" expression
      */
     @Override
@@ -271,7 +287,21 @@ class Interpreter implements Expr.Visitor<Object>,
     // evaluate Class declaration
     @Override
     public Void visitClassStmt(Stmt.Class stmt) {
+        Object superclass = null;
+        if (stmt.superclass != null) {
+            // parser assert that it is an identifier, not an arbitrary expression.
+            superclass = this.evaluate(stmt.superclass);
+            if (!(superclass instanceof LoxClass)) {
+                throw new RuntimeError(stmt.superclass.name, "Superclass must be a class.");
+            }
+        }
         this.environment.define(stmt.name.lexeme, null);
+
+        if (stmt.superclass != null) {
+            environment = new Environment(environment);
+            environment.define("super", superclass);
+        }
+
         Map<String, LoxFunction> methods = new HashMap<>();
         for (Stmt.Function method: stmt.methods) {
             LoxFunction function = new LoxFunction(
@@ -281,7 +311,11 @@ class Interpreter implements Expr.Visitor<Object>,
             );
             methods.put(method.name.lexeme, function);
         }
-        LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
+        LoxClass klass = new LoxClass(stmt.name.lexeme, (LoxClass)superclass, methods);
+
+        if (superclass != null) {
+            environment = environment.enclosing;
+        }
         environment.assign(stmt.name, klass);
         return null;
     }

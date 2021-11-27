@@ -260,18 +260,27 @@ class Parser {
         }
     }
 
-    // BNF: classDecl -> "class" IDENTIFIER "{" function* "}" ;
+    // BNF: classDecl -> "class" IDENTIFIER ( "<" IDENTIFIER ) ? "{" function* "}" ;
     private Stmt classDeclaration() {
         Token name = this.consume(IDENTIFIER, "Expect class name");
+        
+        // parse superclass (if any)
+        Expr.Variable superclass = null;
+        if (this.match(LESS)) {
+            this.consume(IDENTIFIER, "Expected superclass name.");
+            superclass = new Expr.Variable(this.previous());
+        }
+
         this.consume(LEFT_BRACE, "Expect '{' after class declaration.");
 
+        // parse methods
         List<Stmt.Function> methods = new ArrayList<>();
         while (!this.check(RIGHT_BRACE) && !this.isAtEnd()) {
             methods.add(this.function(FunctionKind.METHOD));
         }
         this.consume(RIGHT_BRACE, "Expect '}' after class body.");
 
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, superclass, methods);
     }
 
     // BNF: equality -> comparison ( ( "!=" | "==" ) comparison )* ;
@@ -389,7 +398,8 @@ class Parser {
        return new Expr.Call(callee, paren, arguments);
     }
 
-    // BNF: primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER;
+    // BNF: primary -> NUMBER | STRING | "true" | "false" | "nil" | "this" |
+    //                  "(" expression ")" | "super" "." IDENTIFIER | IDENTIFIER;
     private Expr primary() {
         if (this.match(FALSE)) return new Expr.Literal(false);
         if (this.match(TRUE)) return new Expr.Literal(true);
@@ -397,6 +407,13 @@ class Parser {
 
         if (this.match(NUMBER, STRING)) {
             return new Expr.Literal(this.previous().literal);
+        }
+
+        if (this.match(SUPER)) {
+            Token keyword = this.previous();
+            this.consume(DOT, "Expected '.' followed by a method name");
+            Token method = this.consume(IDENTIFIER, "expected superclass method name.");
+            return new Expr.Super(keyword, method);
         }
 
         if (this.match(THIS)) return new Expr.This(this.previous());
