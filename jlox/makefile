@@ -6,9 +6,11 @@ PHONY := clean
 Lox: com/craftinginterpreters/lox/Lox.class
 
 ${BIN_DIR}/com/craftinginterpreters/lox/Lox.class: ${SRC_DIR}/com/craftinginterpreters/lox/*.java
+	mkdir -p ${BIN_DIR}
 	javac -sourcepath ${SRC_DIR} -d ${BIN_DIR} ${SRC_DIR}/com/craftinginterpreters/lox/*.java
 
 ${BIN_DIR}/com/craftinginterpreters/tool/GenerateAst.class: ${SRC_DIR}/com/craftinginterpreters/tool/GenerateAst.java
+	mkdir -p ${BIN_DIR}
 	javac -sourcepath ${SRC_DIR} -d ${BIN_DIR} ${SRC_DIR}/com/craftinginterpreters/tool/GenerateAst.java
 
 build: ${BIN_DIR}/com/craftinginterpreters/lox/Lox.class
