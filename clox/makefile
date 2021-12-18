@@ -17,8 +17,14 @@ chunk.o: chunk.c chunk.h memory.h common.h value.h
 memory.o: memory.c memory.h common.h
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-clox: main.c chunk.o memory.o debug.o value.o vm.o
-	$(CC) -o $@ main.c chunk.o memory.o debug.o value.o vm.o -W $(CFLAGS)
+compiler.o: compiler.c compiler.h common.h scanner.h
+	$(CC) -c -o $@ $< -W $(CFLAGS)
+
+scanner.o: scanner.c scanner.h common.h
+	$(CC) -c -o $@ $< -W $(CFLAGS)
+
+clox: main.c chunk.o memory.o debug.o value.o vm.o compiler.o
+	$(CC) -o $@ main.c chunk.o memory.o debug.o value.o vm.o compiler.o scanner.o -W $(CFLAGS)
 
 clean:
 	rm clox *.o
