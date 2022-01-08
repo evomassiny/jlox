@@ -1,30 +1,34 @@
 CC=gcc
 CFLAGS=-W -I.
+OBJ=obj
 
 
-vm.o: vm.c vm.h memory.h common.h
+$(OBJ):
+	mkdir -p $(OBJ)
+
+$(OBJ)/vm.o: vm.c vm.h memory.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-value.o: value.c value.h memory.h common.h
+$(OBJ)/value.o: value.c value.h memory.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-debug.o: debug.c debug.h chunk.h common.h
+$(OBJ)/debug.o: debug.c debug.h chunk.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-chunk.o: chunk.c chunk.h memory.h common.h value.h
+$(OBJ)/chunk.o: chunk.c chunk.h memory.h common.h value.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-memory.o: memory.c memory.h common.h
+$(OBJ)/memory.o: memory.c memory.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-compiler.o: compiler.c compiler.h common.h scanner.h
+$(OBJ)/compiler.o: compiler.c compiler.h common.h scanner.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-scanner.o: scanner.c scanner.h common.h
+$(OBJ)/scanner.o: scanner.c scanner.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-clox: main.c chunk.o memory.o debug.o value.o vm.o compiler.o
-	$(CC) -o $@ main.c chunk.o memory.o debug.o value.o vm.o compiler.o scanner.o -W $(CFLAGS)
+clox: main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o $(OBJ)
+	$(CC) -o $@ main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o -W $(CFLAGS)
 
 clean:
-	rm clox *.o
+	rm $(OBJ)/clox $(OBJ)/*.o
