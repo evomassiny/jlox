@@ -32,3 +32,6 @@ clox: main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)
 
 clean:
 	rm $(OBJ)/clox $(OBJ)/*.o
+
+format:
+	clang-format -i *.h *.c
