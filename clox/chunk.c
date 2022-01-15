@@ -12,7 +12,7 @@ void initChunk(Chunk *chunk) {
   initValueArray(&chunk->constants);
 }
 
-// append chunk, re-allocate if needed.
+// append byte to chunk, re-allocate if needed.
 void writeChunk(Chunk *chunk, uint8_t byte, int line) {
   if (chunk->capacity < chunk->count + 1) {
     int oldCapacity = chunk->capacity;

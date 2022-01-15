@@ -5,10 +5,18 @@
 
 typedef enum {
   OP_CONSTANT,
+  OP_NIL, // push `nil` on the execution stack (this avoid storing it within the
+          // constant table).
+  OP_TRUE,  // same for `true`
+  OP_FALSE, // same for `false`
+  OP_EQUAL,
+  OP_GREATER,
+  OP_LESS,
   OP_ADD,
   OP_SUBSTRACT,
   OP_MULTIPLY,
   OP_DIVIDE,
+  OP_NOT,
   OP_NEGATE,
   OP_RETURN,
 } OpCode;
