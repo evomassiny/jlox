@@ -6,10 +6,13 @@ OBJ=obj
 $(OBJ):
 	mkdir -p $(OBJ)
 
-$(OBJ)/vm.o: vm.c vm.h memory.h common.h $(OBJ)
+$(OBJ)/vm.o: vm.c vm.h common.h compiler.h debug.h object.h value.h memory.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/value.o: value.c value.h memory.h common.h $(OBJ)
+$(OBJ)/object.o: object.c object.h value.h object.h memory.h common.h $(OBJ)
+	$(CC) -c -o $@ $< -W $(CFLAGS)
+
+$(OBJ)/value.o: value.c value.h object.h memory.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
 $(OBJ)/debug.o: debug.c debug.h chunk.h common.h $(OBJ)
@@ -18,17 +21,17 @@ $(OBJ)/debug.o: debug.c debug.h chunk.h common.h $(OBJ)
 $(OBJ)/chunk.o: chunk.c chunk.h memory.h common.h value.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/memory.o: memory.c memory.h common.h $(OBJ)
+$(OBJ)/memory.o: memory.c memory.h common.h object.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/compiler.o: compiler.c compiler.h common.h scanner.h $(OBJ)
+$(OBJ)/compiler.o: compiler.c compiler.h common.h scanner.h object.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
 $(OBJ)/scanner.o: scanner.c scanner.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-clox: main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o $(OBJ)
-	$(CC) -o $@ main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o -W $(CFLAGS)
+clox: main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o $(OBJ)/object.o
+	 $(CC) -o $@ main.c $(OBJ)/chunk.o $(OBJ)/memory.o $(OBJ)/debug.o $(OBJ)/value.o $(OBJ)/vm.o $(OBJ)/compiler.o $(OBJ)/scanner.o $(OBJ)/object.o -W $(CFLAGS)
 
 clean:
 	rm $(OBJ)/clox $(OBJ)/*.o

@@ -15,6 +15,8 @@ typedef struct {
   Value stack[STACK_MAX];
   // stack pointer, points to next empty value
   Value *stackTop;
+  // Head of the heap object linked list
+  Obj *objects;
 } VM;
 
 typedef enum {
@@ -22,6 +24,9 @@ typedef enum {
   INTERPRET_COMPILE_ERROR,
   INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
+
+// export vm globally
+extern VM vm;
 
 void initVM();
 void freeVM();
