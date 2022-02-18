@@ -24,6 +24,7 @@ struct ObjString {
   Obj obj;    // because #[repr(C)]: `(obj*) &ObjString` is valid.
   int length; // EXCLUDING trailing '\0'
   char *chars;
+  uint32_t hash; // not garanteed to be uniq per string.
 };
 
 ObjString *takeString(char *chars, int length);

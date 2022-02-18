@@ -2,6 +2,7 @@
 #define CLOX_WM_H
 
 #include "chunk.h"
+#include "table.h"
 #include "value.h"
 
 #define STACK_MAX 256
@@ -15,6 +16,8 @@ typedef struct {
   Value stack[STACK_MAX];
   // stack pointer, points to next empty value
   Value *stackTop;
+  // interned strings
+  Table strings;
   // Head of the heap object linked list
   Obj *objects;
 } VM;
