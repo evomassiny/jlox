@@ -16,7 +16,9 @@ typedef struct {
   Value stack[STACK_MAX];
   // stack pointer, points to next empty value
   Value *stackTop;
-  // interned strings
+  // Global variables values, by name
+  Table globals;
+  // ALL interned strings
   Table strings;
   // Head of the heap object linked list
   Obj *objects;
