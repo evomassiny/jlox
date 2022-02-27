@@ -32,7 +32,8 @@ typedef enum {
   PREC_UNARY,      // !, -
 } Precedence;
 
-typedef void (*ParseFn)(bool canAssign); // ParseFn: `fn(void) -> void` function address.
+typedef void (*ParseFn)(
+    bool canAssign); // ParseFn: `fn(void) -> void` function address.
 
 typedef struct {
   ParseFn prefix;
@@ -155,7 +156,7 @@ static void endCompiler() { emitReturn(); }
 static void expression();
 static void statement();
 static void declaration();
-static uint8_t identifierConstant(Token* name);
+static uint8_t identifierConstant(Token *name);
 static ParseRule *getRule(TokenType type);
 static void parsePrecendence(Precedence precedence);
 
@@ -357,7 +358,7 @@ static void parsePrecendence(Precedence precedence) {
   }
 }
 
-static uint8_t identifierConstant(Token * name) {
+static uint8_t identifierConstant(Token *name) {
   return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
 
@@ -398,7 +399,7 @@ static void varDeclaration() {
  * compile expression, and pop its value.
  * Assumes that all expressions push a value.
  */
-static void expressionStatement() { 
+static void expressionStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
   emitByte(OP_POP);
@@ -419,34 +420,33 @@ static void synchronize() {
 
   while (parser.current.type != TOKEN_EOF) {
     if (parser.previous.type == TOKEN_SEMICOLON) {
-        return;
+      return;
     }
     switch (parser.current.type) {
-      case TOKEN_CLASS:
-      case TOKEN_FUN:
-      case TOKEN_VAR:
-      case TOKEN_FOR:
-      case TOKEN_IF:
-      case TOKEN_WHILE:
-      case TOKEN_PRINT:
-      case TOKEN_RETURN:
-        return;
-      default:
-        ; // no op
+    case TOKEN_CLASS:
+    case TOKEN_FUN:
+    case TOKEN_VAR:
+    case TOKEN_FOR:
+    case TOKEN_IF:
+    case TOKEN_WHILE:
+    case TOKEN_PRINT:
+    case TOKEN_RETURN:
+      return;
+    default:; // no op
     }
     advance();
   }
-
 }
 
 static void declaration() {
   if (match(TOKEN_VAR)) {
     varDeclaration();
   } else {
-    statement(); 
+    statement();
   }
 
-  if (parser.panicMode) synchronize();
+  if (parser.panicMode)
+    synchronize();
 }
 
 static void statement() {
