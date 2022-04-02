@@ -6,10 +6,10 @@ OBJ=obj
 $(OBJ):
 	mkdir -p $(OBJ)
 
-$(OBJ)/vm.o: vm.c vm.h common.h compiler.h chunk.h debug.h  memory.h object.h table.h value.h $(OBJ)
+$(OBJ)/vm.o: vm.c vm.h common.h compiler.h object.h debug.h  memory.h object.h table.h value.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/object.o: object.c object.h common.h memory.h table.h value.h $(OBJ)
+$(OBJ)/object.o: object.c object.h common.h memory.h table.h chunk.h value.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
 $(OBJ)/value.o: value.c value.h object.h memory.h common.h $(OBJ)

@@ -1,17 +1,23 @@
 #ifndef CLOX_WM_H
 #define CLOX_WM_H
 
-#include "chunk.h"
+#include "object.h"
 #include "table.h"
 #include "value.h"
 
+#define FRAME_MAX 64
 #define STACK_MAX 256
 
 typedef struct {
-  // Code + data + debug symbols
-  Chunk *chunk;
+  ObjFunction *function;
   // the instruction we're about to execute, not the one we're executing.
   uint8_t *ip;
+  Value *slots;
+} CallFrame;
+
+typedef struct {
+  CallFrame frames[FRAME_MAX];
+  int frameCount;
   // stores evaluated values
   Value stack[STACK_MAX];
   // stack pointer, points to next empty value

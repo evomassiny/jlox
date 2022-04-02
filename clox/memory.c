@@ -18,6 +18,14 @@ void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
 
 void freeObject(Obj *object) {
   switch (object->type) {
+  case OBJ_FUNCTION: {
+    // downcast Obj -> ObjFunction
+    ObjFunction *function = (ObjFunction *)object;
+    freeChunk(&function->chunk);
+    FREE(ObjFunction, object);
+    // We rely on garbage collection to free `function->name`
+    break;
+  }
   case OBJ_STRING: {
     // downcast Obj -> ObjString
     ObjString *string = (ObjString *)object;
