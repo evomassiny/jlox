@@ -18,6 +18,17 @@ void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
 
 void freeObject(Obj *object) {
   switch (object->type) {
+  case OBJ_CLOSURE: {
+    // closure does not own its function
+    ObjClosure *closure = (ObjClosure *)object;
+    FREE_ARRAY(ObjUpvalue *, closure->upvalues, closure->upvalueCount);
+    FREE(ObjClosure, object);
+    break;
+  }
+  case OBJ_UPVALUE: {
+    FREE(ObjUpvalue, object);
+    break;
+  }
   case OBJ_FUNCTION: {
     // downcast Obj -> ObjFunction
     ObjFunction *function = (ObjFunction *)object;

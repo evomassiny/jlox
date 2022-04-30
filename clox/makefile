@@ -15,7 +15,7 @@ $(OBJ)/object.o: object.c object.h common.h memory.h table.h chunk.h value.h $(O
 $(OBJ)/value.o: value.c value.h object.h memory.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/debug.o: debug.c debug.h chunk.h common.h $(OBJ)
+$(OBJ)/debug.o: debug.c debug.h object.h chunk.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
 $(OBJ)/chunk.o: chunk.c chunk.h memory.h common.h value.h $(OBJ)

@@ -15,6 +15,8 @@ typedef enum {
   OP_GET_GLOBAL,
   OP_DEFINE_GLOBAL,
   OP_SET_GLOBAL,
+  OP_GET_UPVALUE,
+  OP_SET_UPVALUE,
   OP_EQUAL,
   OP_GREATER,
   OP_LESS,
@@ -29,6 +31,9 @@ typedef enum {
   OP_JUMP_IF_FALSE,
   OP_LOOP, // backward jump
   OP_CALL,
+  OP_CLOSURE,       // push closure onto stack
+  OP_CLOSE_UPVALUE, // move local variable onto heap, so it can outlive the its
+                    // stackframe, and be referred by closures.
   OP_RETURN,
 } OpCode;
 

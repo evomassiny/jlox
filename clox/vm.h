@@ -9,7 +9,7 @@
 #define STACK_MAX 256
 
 typedef struct {
-  ObjFunction *function;
+  ObjClosure *closure;
   // the instruction we're about to execute, not the one we're executing.
   uint8_t *ip;
   Value *slots; // point to somewhere in the global vm.stack, at the moment of
@@ -29,6 +29,8 @@ typedef struct {
   Table strings;
   // Head of the heap object linked list
   Obj *objects;
+  /// Head of UpValues linked list
+  ObjUpvalue *openUpvalues;
 } VM;
 
 typedef enum {

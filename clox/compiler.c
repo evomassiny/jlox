@@ -51,7 +51,14 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool isCaptured; // by a closure
 } Local;
+
+// ref to outer callframe variable
+typedef struct {
+  uint8_t index; // local slot index
+  bool isLocal;  // local to the immediate SURROUNDING function
+} Upvalue;
 
 typedef enum {
   TYPE_FUNCTION,
@@ -65,6 +72,7 @@ typedef struct Compiler { // this is the weir C syntax for self referencing
   FunctionType type;
   Local locals[UINT8_COUNT];
   int localCount;
+  Upvalue upvalues[UINT8_COUNT];
   int scopeDepth;
 } Compiler;
 
@@ -236,6 +244,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
 
   Local *local = &current->locals[current->localCount++];
   local->depth = 0;
+  local->isCaptured = false;
   local->name.start = "";
   local->name.length = 0;
 }
@@ -263,7 +272,11 @@ static void endScope() {
   current->scopeDepth--;
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth > current->scopeDepth) {
-    emitByte(OP_POP); // drop locals at the end of the scope.
+    if (current->locals[current->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
+    } else {
+      emitByte(OP_POP); // drop locals at the end of the scope.
+    }
     current->localCount--;
   }
 }
@@ -278,6 +291,7 @@ static ParseRule *getRule(TokenType type);
 static void parsePrecendence(Precedence precedence);
 static void statement();
 static int resolveLocal(Compiler *compiler, Token *name);
+static int resolveUpvalue(Compiler *compiler, Token *name);
 
 /**
  * assumes that the left operand was already consumed (and compiled),
@@ -406,6 +420,9 @@ static void namedVariable(Token name, bool canAssign) {
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
+  } else if ((arg = resolveUpvalue(current, &name)) != -1) {
+    getOp = OP_GET_UPVALUE;
+    setOp = OP_SET_UPVALUE;
   } else {
     // get var name in constant table
     arg = identifierConstant(&name);
@@ -552,6 +569,46 @@ static int resolveLocal(Compiler *compiler, Token *name) {
   return -1;
 }
 
+static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
+  int upvalueCount = compiler->function->upvalueCount;
+  for (int i = 0; i < upvalueCount; i++) {
+    Upvalue *upvalue = &compiler->upvalues[i];
+    if (upvalue->index == index && upvalue->isLocal == isLocal) {
+      return i;
+    }
+  }
+  if (upvalueCount == UINT8_COUNT) {
+    error("Too many closure variable in function.");
+    return 0;
+  }
+  compiler->upvalues[upvalueCount].isLocal = isLocal;
+  compiler->upvalues[upvalueCount].index =
+      index; // match runtime ObjClosure upvalues arrays
+  return compiler->function->upvalueCount++;
+}
+
+// Recursively create a chain of upvalues (in each concerned outer compilers)
+// and returns the index of the last upvalue link in the chain.
+// (both pre-order and post-order traversal)
+static int resolveUpvalue(Compiler *compiler, Token *name) {
+  if (compiler->enclosing == NULL)
+    return -1;
+
+  int local = resolveLocal(compiler->enclosing, name);
+  if (local != -1) {
+    compiler->enclosing->locals[local].isCaptured = true;
+    return addUpvalue(compiler, (uint8_t)local, true);
+  }
+
+  // create the whole chain in one call
+  int upvalue = resolveUpvalue(compiler->enclosing, name);
+  if (upvalue != -1) {
+    return addUpvalue(compiler, (uint8_t)upvalue, false);
+  }
+
+  return -1;
+}
+
 /**
  * stores the name into the table of locals, along with
  * its scope depth.
@@ -573,6 +630,7 @@ static void addLocal(Token name) {
   // }
   // ```
   local->depth = -1;
+  local->isCaptured = false;
 }
 
 /**
@@ -718,7 +776,12 @@ static void function(FunctionType type) {
   block();
 
   ObjFunction *function = endCompiler();
-  emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+
+  for (int i = 0; i < function->upvalueCount; i++) {
+    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+    emitByte(compiler.upvalues[i].index);
+  }
 }
 
 /**
