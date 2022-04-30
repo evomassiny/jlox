@@ -5,18 +5,19 @@
 #include "table.h"
 #include "value.h"
 
-#define FRAME_MAX 64
+#define FRAMES_MAX 64
 #define STACK_MAX 256
 
 typedef struct {
   ObjFunction *function;
   // the instruction we're about to execute, not the one we're executing.
   uint8_t *ip;
-  Value *slots;
+  Value *slots; // point to somewhere in the global vm.stack, at the moment of
+                // the call, it point to the end of the caller stack
 } CallFrame;
 
 typedef struct {
-  CallFrame frames[FRAME_MAX];
+  CallFrame frames[FRAMES_MAX];
   int frameCount;
   // stores evaluated values
   Value stack[STACK_MAX];

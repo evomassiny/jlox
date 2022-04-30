@@ -26,6 +26,10 @@ void freeObject(Obj *object) {
     // We rely on garbage collection to free `function->name`
     break;
   }
+  case OBJ_NATIVE: {
+    FREE(ObjNative, object);
+    break;
+  }
   case OBJ_STRING: {
     // downcast Obj -> ObjString
     ObjString *string = (ObjString *)object;
