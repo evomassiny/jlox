@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
 #include "object.h"
 #include "scanner.h"
 
@@ -65,11 +66,12 @@ typedef enum {
   TYPE_SCRIPT, // implicit main() arround a script
 } FunctionType;
 
-typedef struct Compiler { // this is the weir C syntax for self referencing
+// Reponsible for compiling a Function or a Script.
+typedef struct Compiler { // this is the weird C syntax for self referencing
                           // structs
   struct Compiler *enclosing;
-  ObjFunction *function;
-  FunctionType type;
+  ObjFunction *function; // the compiled script/function
+  FunctionType type;     // answers "script or function" ?
   Local locals[UINT8_COUNT];
   int localCount;
   Upvalue upvalues[UINT8_COUNT];
@@ -412,6 +414,9 @@ static void string(bool _canAssign) {
  * * globals are resolved at runtime using their name (stored in the constant
  * array)
  * * locals are resolved at compile time using their value index in the stack
+ * * closure's variable (upvalues) are resolved at compile time using their
+ * "upvalues"
+ * index in the closure
  */
 static void namedVariable(Token name, bool canAssign) {
   uint8_t getOp, setOp;
@@ -461,6 +466,14 @@ static void unary(bool _canAssign) {
   }
 }
 
+/**
+ * Main parser "router".
+ * For every tokens, tells which function should be called if
+ * the token is encountered in the beginning of an expression,
+ * or in between.
+ * The precedence is used to determine if a token is a child node
+ * of the expression/statement we are parsing, or is part of an upper node.
+ */
 ParseRule rules[] = {
         [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
         [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -1036,4 +1049,14 @@ ObjFunction *compile(const char *source) {
 
   ObjFunction *function = endCompiler();
   return parser.hadError ? NULL : function;
+}
+
+// Mark objects allocated by the compiler itself.
+// (part of GC mark phase).
+void markCompilerRoots(void) {
+  Compiler *compiler = current;
+  while (compiler != NULL) {
+    markObject((Obj *)compiler->function);
+    compiler = compiler->enclosing;
+  }
 }

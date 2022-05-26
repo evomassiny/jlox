@@ -4,6 +4,7 @@
 #include "memory.h"
 #include "object.h"
 #include "value.h"
+#include "vm.h"
 
 bool valuesEqual(Value a, Value b) {
   if (a.type != b.type)

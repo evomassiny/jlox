@@ -17,6 +17,7 @@ typedef struct {
 } CallFrame;
 
 typedef struct {
+  // Stack frames, grows when calling into a closure/method
   CallFrame frames[FRAMES_MAX];
   int frameCount;
   // stores evaluated values
@@ -29,8 +30,19 @@ typedef struct {
   Table strings;
   // Head of the heap object linked list
   Obj *objects;
-  /// Head of UpValues linked list
+  // number of objects ref in the `grayStack`
+  int grayCount;
+  // capacity of the gray stack
+  int grayCapacity;
+  // stack of object's references we are marking (in GC)
+  Obj **grayStack;
+  // Head of UpValues linked list
   ObjUpvalue *openUpvalues;
+  // keeps tracks of memory consumption
+  size_t bytesAllocated;
+  // when `bytesAllocated` crosses that treshold,
+  // trigger a GC cycle.
+  size_t nextGC;
 } VM;
 
 typedef enum {

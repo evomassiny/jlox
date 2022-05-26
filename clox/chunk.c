@@ -1,6 +1,8 @@
 #include "chunk.h"
 #include "memory.h"
 #include "value.h"
+#include "vm.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 // set chunk field, doesn't allocate
@@ -37,6 +39,9 @@ void freeChunk(Chunk *chunk) {
 
 // append a constant value, and return its index.
 int addConstant(Chunk *chunk, Value value) {
+  push(value); // add the value so the GC can mark it,
+  // if it is triggered while executing writeValueArray()
   writeValueArray(&chunk->constants, value);
+  pop();
   return chunk->constants.count - 1;
 }

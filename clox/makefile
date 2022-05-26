@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-W -I.
+CFLAGS=-g -W -I.
 OBJ=obj
 
 
@@ -18,13 +18,13 @@ $(OBJ)/value.o: value.c value.h object.h memory.h common.h $(OBJ)
 $(OBJ)/debug.o: debug.c debug.h object.h chunk.h common.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/chunk.o: chunk.c chunk.h memory.h common.h value.h $(OBJ)
+$(OBJ)/chunk.o: chunk.c chunk.h memory.h common.h value.h vm.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/memory.o: memory.c memory.h common.h object.h $(OBJ)
+$(OBJ)/memory.o: memory.c memory.h common.h object.h compiler.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
-$(OBJ)/compiler.o: compiler.c compiler.h common.h scanner.h object.h $(OBJ)
+$(OBJ)/compiler.o: compiler.c compiler.h common.h scanner.h object.h memory.h $(OBJ)
 	$(CC) -c -o $@ $< -W $(CFLAGS)
 
 $(OBJ)/scanner.o: scanner.c scanner.h common.h $(OBJ)

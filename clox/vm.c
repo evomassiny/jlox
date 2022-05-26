@@ -60,6 +60,13 @@ static void defineNative(const char *name, NativeFn function) {
 void initVM() {
   resetStack();
   vm.objects = NULL;
+
+  vm.bytesAllocated = 0;
+  vm.nextGC = 1024 * 1024;
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
+  vm.grayStack = NULL;
+
   initTable(&vm.globals);
   initTable(&vm.strings);
 
@@ -135,8 +142,10 @@ static ObjUpvalue *captureUpvalue(Value *local) {
   // in search for one that already close over "local".
   ObjUpvalue *prevUpvalue = NULL;
   ObjUpvalue *upvalue = vm.openUpvalues;
-  // relay on the fact that upvalues are sorted by the
-  // adress of the local they point to in the linked list
+  // relies on the fact that upvalues are sorted by the
+  // address of the local they point to in the linked list.
+  // This means that the linked list is ordered by the upvalues'
+  // locations.
   while (upvalue != NULL && upvalue->location > local) {
     prevUpvalue = upvalue;
     upvalue = upvalue->next;
@@ -158,6 +167,8 @@ static ObjUpvalue *captureUpvalue(Value *local) {
 
 // close all upvalues that refer to a stack address
 // greater than `last`
+// Move the stack-local value into the ObjUpvalues
+// and update the ObjUpvalue pointer to its own field
 static void closeUpvalues(Value *last) {
   while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
     ObjUpvalue *upvalue = vm.openUpvalues;
@@ -171,15 +182,18 @@ static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
+// Concatenate 2 strings
 static void concatenate() {
-  ObjString *b = AS_STRING(pop());
-  ObjString *a = AS_STRING(pop());
+  ObjString *b = AS_STRING(peek(0)); // keep them on stack for GC
+  ObjString *a = AS_STRING(peek(1));
   int length = a->length + b->length;
   char *chars = ALLOCATE(char, length + 1);
   memcpy(chars, a->chars, a->length);
   memcpy(chars + a->length, b->chars, b->length);
   chars[length] = '\0';
   ObjString *result = takeString(chars, length);
+  pop();
+  pop();
   push(OBJ_VAL(result));
 }
 
