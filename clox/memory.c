@@ -77,10 +77,12 @@ void markArray(ValueArray *array) {
   }
 }
 
-// append the children of the object
-// to the "grayStack", unless they are "marked" (done in markObject)
-// returning from this function effectively un-queue
-// the object from the "gray" list.
+/**
+ * Append the children of the object
+ * to the "grayStack", unless they are "marked" (done in markObject)
+ * returning from this function effectively un-queue
+ * the object from the "gray" list.
+ */
 static void blackenObject(Obj *object) {
 #ifdef DEBUG_LOG_GC
   printf("%p blacken ", (void *)object);
@@ -88,6 +90,12 @@ static void blackenObject(Obj *object) {
   printf("\n");
 #endif
   switch (object->type) {
+  // mark class name + ?
+  case OBJ_CLASS: {
+    ObjClass *klass = (ObjClass *)object;
+    markObject((Obj *)klass->name);
+    break;
+  }
   // mark function and the upvalues
   case OBJ_CLOSURE: {
     ObjClosure *closure = (ObjClosure *)object;
@@ -102,6 +110,13 @@ static void blackenObject(Obj *object) {
     ObjFunction *function = (ObjFunction *)object;
     markObject((Obj *)function->name);
     markArray(&function->chunk.constants);
+    break;
+  }
+  // mark klass and fields
+  case OBJ_INSTANCE: {
+    ObjInstance *instance = (ObjInstance *)object;
+    markObject((Obj *)instance->klass);
+    markTable(&instance->fields);
     break;
   }
   // simply mark the value
@@ -121,6 +136,11 @@ void freeObject(Obj *object) {
   printf("%p free type %d\n", (void *)object, object->type);
 #endif
   switch (object->type) {
+  case OBJ_CLASS: {
+    // We rely on garbage collection to free `class->name`
+    FREE(ObjClass, object);
+    break;
+  }
   case OBJ_CLOSURE: {
     // closure does not own its function
     ObjClosure *closure = (ObjClosure *)object;
@@ -138,6 +158,13 @@ void freeObject(Obj *object) {
     freeChunk(&function->chunk);
     FREE(ObjFunction, object);
     // We rely on garbage collection to free `function->name`
+    break;
+  }
+  case OBJ_INSTANCE: {
+    // We rely on garbage collection to free `instance->klass`
+    ObjInstance *instance = (ObjInstance *)object;
+    freeTable(&instance->fields);
+    FREE(ObjInstance, object);
     break;
   }
   case OBJ_NATIVE: {

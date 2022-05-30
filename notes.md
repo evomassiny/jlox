@@ -64,13 +64,13 @@ Those have no value to anyone but me.
 * resolving the address of an "else" block in an "if" statement AFTER emyting the JUMP instruction is called **backpatching**. 
 * we can store local variables directly into the vm stack, their adrees became their slot index
 * function declaration are Function Object literals !
-* There a way to describe "when" the work is done while traversing a recursive function call stack, eg:
+* There s a way to describe "when" the work is done while traversing a recursive function call stack, eg:
   ```
   def pre_order_traversal(count: int):
     if count == 0:
       print("STOP")
     else:
-      print("Continue")
+      print("Continue") # work
       pre_order(count - 1)
 
 
@@ -78,9 +78,8 @@ Those have no value to anyone but me.
     if count == 0:
       print("STOP")
     else:
-      pre_order(count - 1)
-      print("Continue")
-
+      post_order_traversal(count - 1)
+      print("Continue") # work
   ```
 * `upvalue`s are closure's bindings to other variable which were defined in outer stackframes. If the variable still lives in its original stack frame,
   we call it **open**, if we had to move it the heap, we call it **closed**.
@@ -90,6 +89,8 @@ Those have no value to anyone but me.
   * **black**: we processed the node, and its children.
   Those 3 variants end up in any kind of tree traversal, I should use those naming convention from now on.
 * the USA says "gray", UK says "grey"
-* a **weak reference** is a reference that doesn't protect the referenced object to be garbage collected, eg: in the
+* a **weak reference** is a reference that doesn't protect the referenced object from being garbage collected, eg: in the
   mark phase of a GC mark and sweep, weak refs are not dereferenced.
-* in GC land, **throughput** represents the time running/(running + GCing), and **latency** is the longest continuous GC time.
+* in GC land, **throughput** represents the time `running/(running + GCing)`, and **latency** is the longest continuous GC time.
+* `class` declaration produces a runtime object, bound to a variable (the class name), this means class types are usual objects.
+* class instances' fields are variables, **properties** are variables + **methods**

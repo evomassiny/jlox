@@ -350,6 +350,22 @@ static void call(bool canAssign) {
 }
 
 /**
+ * Parse class instance property into
+ * a GET or SET opcode.
+ */
+static void dot(bool canAssign) {
+  consume(TOKEN_IDENTIFIER, "Expect property name fater '.'.");
+  uint8_t name = identifierConstant(&parser.previous);
+
+  if (canAssign && match(TOKEN_EQUAL)) {
+    expression();
+    emitBytes(OP_SET_PROPERTY, name);
+  } else {
+    emitBytes(OP_GET_PROPERTY, name);
+  }
+}
+
+/**
  * infix expression.
  * Push the literal directly onto the chunk for simple
  * values,
@@ -480,7 +496,7 @@ ParseRule rules[] = {
         [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
         [TOKEN_RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
         [TOKEN_COMMA] = {NULL, NULL, PREC_NONE},
-        [TOKEN_DOT] = {NULL, NULL, PREC_NONE},
+        [TOKEN_DOT] = {NULL, dot, PREC_CALL},
         [TOKEN_MINUS] = {unary, binary, PREC_TERM},
         [TOKEN_PLUS] = {NULL, binary, PREC_TERM},
         [TOKEN_SEMICOLON] = {NULL, NULL, PREC_NONE},
@@ -798,6 +814,22 @@ static void function(FunctionType type) {
 }
 
 /**
+ * parse class declaration. (assume "class" has been consumed).
+ */
+static void classDeclaration(void) {
+  consume(TOKEN_IDENTIFIER, "Expect class name.");
+  uint8_t nameConstant = identifierConstant(&parser.previous);
+  declareVariable();
+
+  emitBytes(OP_CLASS, nameConstant);
+  defineVariable(nameConstant);
+
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+  // TODO: rest of the owl
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+}
+
+/**
  * parse function declaration, assumes "fun" has been consumed.
  */
 static void funDeclaration(void) {
@@ -982,11 +1014,14 @@ static void synchronize() {
 
 /**
  * declaration -> varDeclaration
- *                |funDeclaration
+ *                | classDeclaration
+ *                | funDeclaration
  *                | statement;
  */
 static void declaration() {
-  if (match(TOKEN_VAR)) {
+  if (match(TOKEN_CLASS)) {
+    classDeclaration();
+  } else if (match(TOKEN_VAR)) {
     varDeclaration();
   } else if (match(TOKEN_FUN)) {
     funDeclaration();
@@ -994,6 +1029,7 @@ static void declaration() {
     statement();
   }
 
+  // move scanner cursor to next sibling expr/stmt
   if (parser.panicMode)
     synchronize();
 }

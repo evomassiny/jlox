@@ -3,30 +3,37 @@
 
 #include "chunk.h"
 #include "common.h"
+#include "table.h"
 #include "value.h"
 
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
 
+#define IS_CLASS(value) isObjType(value, OBJ_CLASS)
 #define IS_CLOSURE(value) isObjType(value, OBJ_CLOSURE)
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
+#define IS_INSTANCE(value) isObjType(value, OBJ_INSTANCE)
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value) isObjType(value, OBJ_STRING)
 
+#define AS_CLASS(value) ((ObjClass *)(value).as.obj)
 #define AS_CLOSURE(value) ((ObjClosure *)(value).as.obj)
 #define AS_FUNCTION(value) ((ObjFunction *)(value).as.obj)
+#define AS_INSTANCE(value) ((ObjInstance *)(value).as.obj)
 #define AS_NATIVE(value) (((ObjNative *)(value).as.obj)->function)
 #define AS_STRING(value) ((ObjString *)(value).as.obj)
 #define AS_CSTRING(value) (((ObjString *)(value).as.obj)->chars)
 
 typedef enum {
-  OBJ_CLOSURE = 0,
-  OBJ_FUNCTION = 1,
-  OBJ_NATIVE = 2,
-  OBJ_STRING = 3,
-  OBJ_UPVALUE = 4,
+  OBJ_CLASS,
+  OBJ_CLOSURE,
+  OBJ_FUNCTION,
+  OBJ_INSTANCE,
+  OBJ_NATIVE,
+  OBJ_STRING,
+  OBJ_UPVALUE,
 } ObjType;
 
-// mockup inheritance, see ObjFunction, ObjString
+// mockup inheritance, see ObjFunction, ObjString, ...
 struct Obj {
   ObjType type;
   bool isMarked;
@@ -71,7 +78,20 @@ typedef struct {
   int upvalueCount;
 } ObjClosure;
 
+typedef struct {
+  Obj obj; // because #[repr(C)]: `(obj*) &ObjClass` is valid.
+  ObjString *name;
+} ObjClass;
+
+typedef struct {
+  Obj obj;
+  ObjClass *klass;
+  Table fields;
+} ObjInstance;
+
+ObjClass *newClass(ObjString *name);
 ObjFunction *newFunction();
+ObjInstance *newInstance(ObjClass *klass);
 ObjClosure *newClosure(ObjFunction *function);
 ObjNative *newNative(NativeFn function);
 ObjString *takeString(char *chars, int length);
