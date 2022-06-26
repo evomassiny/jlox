@@ -28,6 +28,8 @@ typedef struct {
   Table globals;
   // ALL interned strings
   Table strings;
+  // name of the "init" method in class definition
+  ObjString *initString;
   // Head of the heap object linked list
   Obj *objects;
   // number of objects ref in the `grayStack`

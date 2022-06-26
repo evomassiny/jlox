@@ -7,17 +7,18 @@ typedef enum {
   OP_CONSTANT,
   OP_NIL, // push `nil` on the execution stack (this avoid storing it within the
           // constant table).
-  OP_TRUE,  // same for `true`
-  OP_FALSE, // same for `false`
-  OP_POP,   // drop last inserted stack entry
-  OP_GET_LOCAL,
+  OP_TRUE,      // same for `true`
+  OP_FALSE,     // same for `false`
+  OP_POP,       // drop last inserted stack entry
+  OP_GET_LOCAL, // load from stack
   OP_SET_LOCAL,
-  OP_GET_GLOBAL,
+  OP_GET_GLOBAL, // load from global hastable
   OP_DEFINE_GLOBAL,
   OP_SET_GLOBAL,
-  OP_GET_UPVALUE,
+  OP_GET_UPVALUE, // load from closure `upvalue` (either stored directly in the
+                  // array or referenced by it)
   OP_SET_UPVALUE,
-  OP_GET_PROPERTY,
+  OP_GET_PROPERTY, // load from ?
   OP_SET_PROPERTY,
   OP_EQUAL,
   OP_GREATER,
@@ -33,11 +34,13 @@ typedef enum {
   OP_JUMP_IF_FALSE,
   OP_LOOP, // backward jump
   OP_CALL,
+  OP_INVOKE,        // call a method (bound to an object)
   OP_CLOSURE,       // push closure onto stack
   OP_CLOSE_UPVALUE, // move local variable onto heap, so it can outlive the its
                     // stackframe, and be referred by closures.
   OP_RETURN,
   OP_CLASS,
+  OP_METHOD, // bind a method to a class object
 } OpCode;
 
 // holds TEXT + DATA + DEBUG info

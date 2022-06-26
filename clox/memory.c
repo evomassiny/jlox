@@ -90,10 +90,19 @@ static void blackenObject(Obj *object) {
   printf("\n");
 #endif
   switch (object->type) {
-  // mark class name + ?
+  // mark class bound object (ObjInstance wrapped in Value) + method
+  // (ObjClosure)
+  case OBJ_BOUND_METHOD: {
+    ObjBoundMethod *bound = (ObjBoundMethod *)object;
+    markValue(bound->receiver);
+    markObject((Obj *)bound->method);
+    break;
+  }
+  // mark class name + methods
   case OBJ_CLASS: {
     ObjClass *klass = (ObjClass *)object;
     markObject((Obj *)klass->name);
+    markTable(&klass->methods);
     break;
   }
   // mark function and the upvalues
@@ -136,8 +145,15 @@ void freeObject(Obj *object) {
   printf("%p free type %d\n", (void *)object, object->type);
 #endif
   switch (object->type) {
+  case OBJ_BOUND_METHOD: {
+    FREE(ObjBoundMethod, object);
+    // does not _own_ the method nor the object bound to it.
+    break;
+  }
   case OBJ_CLASS: {
     // We rely on garbage collection to free `class->name`
+    ObjClass *klass = (ObjClass *)object;
+    freeTable(&klass->methods);
     FREE(ObjClass, object);
     break;
   }
@@ -205,6 +221,9 @@ static void markRoots(void) {
 
   // mark objects allacated by the compiler
   markCompilerRoots();
+
+  // interned "init" string
+  markObject((Obj *)vm.initString);
 }
 
 static void traceReferences(void) {

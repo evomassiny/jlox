@@ -70,6 +70,9 @@ void initVM() {
   initTable(&vm.globals);
   initTable(&vm.strings);
 
+  vm.initString = NULL; // copyString might trigger GC, which reads 'initString'
+  vm.initString = copyString("init", 4);
+
   // add native functions
   defineNative("clock", clockNative);
 }
@@ -78,6 +81,7 @@ void freeVM() {
   // free all remaining heap objects
   freeTable(&vm.globals);
   freeTable(&vm.strings);
+  vm.initString = NULL;
   freeObjects();
 }
 
@@ -120,10 +124,27 @@ static bool call(ObjClosure *closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
+    case OBJ_BOUND_METHOD: {
+      ObjBoundMethod *bound = AS_BOUND_METHOD(callee);
+      // insert the instance as the first "local" variable
+      // of the function, which we bound to the  name 'this'
+      // We reserved this slot just for this in the compilation step
+      vm.stackTop[-argCount - 1] = bound->receiver;
+      return call(bound->method, argCount);
+    }
     case OBJ_CLASS: {
       ObjClass *klass = AS_CLASS(callee);
       // mutate `callee` slot ?!
       vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+
+      // lookup init method and call it (if any)
+      Value initializer;
+      if (tableGet(&klass->methods, vm.initString, &initializer)) {
+        return call(AS_CLOSURE(initializer), argCount);
+      } else if (argCount != 0) {
+        runtimeError("Expected 0 arguments but got %d.", argCount);
+        return false;
+      }
       return true;
     }
     case OBJ_CLOSURE:
@@ -141,6 +162,69 @@ static bool callValue(Value callee, int argCount) {
   }
   runtimeError("Can only call function and classes.");
   return false;
+}
+
+/*
+ * Lookup method from a class and call it
+ * expect the stack to contain:
+ * < args N>
+ * ...
+ * < args 0>
+ * < object instance as value >
+ */
+static bool invokeFromClass(ObjClass *klass, ObjString *name, int argCount) {
+  Value method;
+
+  if (!tableGet(&klass->methods, name, &method)) {
+    runtimeError("Undefined property '%s'.", name->chars);
+    return false;
+  }
+
+  return call(AS_CLOSURE(method), argCount);
+}
+
+/*
+ * Execute an instance's method call,
+ * expect the stack to contain:
+ * < args N>
+ * ...
+ * < args 0>
+ * < object instance as value >
+ */
+static bool invoke(ObjString *method, int argCount) {
+  Value receiver = peek(argCount);
+
+  if (!IS_INSTANCE(receiver)) {
+    runtimeError("Only instances have methods.");
+    return false;
+  }
+
+  ObjInstance *instance = AS_INSTANCE(receiver);
+
+  // handle cases where `method` isn't a class method but
+  // a field value (even if callable)
+  Value value;
+  if (tableGet(&instance->fields, method, &value)) {
+    vm.stackTop[-argCount - 1] = value;
+    return callValue(value, argCount);
+  }
+  return invokeFromClass(instance->klass, method, argCount);
+}
+
+/**
+ * Lookup for a method named `name` in the klass,
+ * then bind it to the topmost value of the stack.
+ */
+static bool bindMethod(ObjClass *klass, ObjString *name) {
+  Value method;
+  if (!tableGet(&klass->methods, name, &method)) {
+    runtimeError("Undefined property '%s'.", name->chars);
+    return false;
+  }
+  ObjBoundMethod *bound = newBoundMethod(peek(0), AS_CLOSURE(method));
+  pop();
+  push(OBJ_VAL(bound));
+  return true;
 }
 
 static ObjUpvalue *captureUpvalue(Value *local) {
@@ -182,6 +266,16 @@ static void closeUpvalues(Value *last) {
     upvalue->location = &upvalue->closed;
     vm.openUpvalues = upvalue->next;
   }
+}
+
+// Bind a method to a Class object,
+// Expect that the method is on top of the stack, and
+// the class object is right after it.
+static void defineMethod(ObjString *name) {
+  Value method = peek(0);
+  ObjClass *klass = AS_CLASS(peek(1));
+  tableSet(&klass->methods, name, method);
+  pop();
 }
 
 static bool isFalsey(Value value) {
@@ -311,17 +405,23 @@ static InterpretResult run() {
       }
       // read class instance (without poping it for GC)
       ObjInstance *instance = AS_INSTANCE(peek(0));
-      // read field name
+      // read field/method name
       ObjString *name = READ_STRING();
 
+      // If a field exists with this name, return it
       Value value;
       if (tableGet(&instance->fields, name, &value)) {
         pop(); // instance
         push(value);
         break;
       }
-      runtimeError("Undefined property '%s'.", name->chars);
-      return INTERPRET_RUNTIME_ERROR;
+
+      // otherwise, it should be a method,
+      // so bind it to the class instance and return it
+      if (!bindMethod(instance->klass, name)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      break;
     }
     case OP_SET_PROPERTY: {
       if (!IS_INSTANCE(peek(1))) {
@@ -414,9 +514,28 @@ static InterpretResult run() {
       // * ARG 0
       // * function obj
       int argCount = READ_BYTE();
+      // change stack frame
       if (!callValue(peek(argCount), argCount)) {
         return INTERPRET_RUNTIME_ERROR;
       }
+      frame = &vm.frames[vm.frameCount - 1];
+      break;
+    }
+    case OP_INVOKE: {
+      // Expect on the stack:
+      // * method name (top)
+      // * Number of arguments
+      // * ARGN N
+      // * ...
+      // * ARG 0
+      // * obj instance
+      ObjString *method = READ_STRING();
+      int argCount = READ_BYTE();
+      // change stack frame
+      if (!invoke(method, argCount)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      // restore stack frame
       frame = &vm.frames[vm.frameCount - 1];
       break;
     }
@@ -470,6 +589,10 @@ static InterpretResult run() {
     case OP_CLASS: {
       // push class value onto stack
       push(OBJ_VAL(newClass(READ_STRING())));
+      break;
+    }
+    case OP_METHOD: {
+      defineMethod(READ_STRING());
       break;
     }
     }

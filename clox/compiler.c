@@ -63,6 +63,8 @@ typedef struct {
 
 typedef enum {
   TYPE_FUNCTION,
+  TYPE_INITIALIZER,
+  TYPE_METHOD,
   TYPE_SCRIPT, // implicit main() arround a script
 } FunctionType;
 
@@ -78,9 +80,12 @@ typedef struct Compiler { // this is the weird C syntax for self referencing
   int scopeDepth;
 } Compiler;
 
+typedef struct ClassCompiler { struct ClassCompiler *enclosing; } ClassCompiler;
+
 // global parser state.
 Parser parser;
 Compiler *current = NULL;
+ClassCompiler *currentClass = NULL;
 Chunk *compilingChunk;
 
 static Chunk *currentChunk() { return &current->function->chunk; }
@@ -191,7 +196,12 @@ static void emitLoop(int loopStart) {
  * write RETURN instruction to current chunk
  */
 static void emitReturn() {
-  emitByte(OP_NIL);
+  if (current->type == TYPE_INITIALIZER) {
+    emitBytes(OP_GET_LOCAL,
+              0); // the slot [0] is the object instance (eg: 'this')
+  } else {
+    emitByte(OP_NIL);
+  }
   emitByte(OP_RETURN);
 }
 
@@ -247,8 +257,13 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
   Local *local = &current->locals[current->localCount++];
   local->depth = 0;
   local->isCaptured = false;
-  local->name.start = "";
-  local->name.length = 0;
+  if (type != TYPE_FUNCTION) {
+    local->name.start = "this";
+    local->name.length = 4;
+  } else {
+    local->name.start = "";
+    local->name.length = 0;
+  }
 }
 
 /**
@@ -350,16 +365,24 @@ static void call(bool canAssign) {
 }
 
 /**
- * Parse class instance property into
+ * Parse class instance property access into
  * a GET or SET opcode.
+ * If the property access is immediatly followed by
+ * a parenthesis, assume its a method call, and
+ * emit an OP_INVOKE opcode instead
+ * (replace OP_GET_PROPERTY + OP_CALL).
  */
 static void dot(bool canAssign) {
-  consume(TOKEN_IDENTIFIER, "Expect property name fater '.'.");
+  consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
   uint8_t name = identifierConstant(&parser.previous);
 
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
     emitBytes(OP_SET_PROPERTY, name);
+  } else if (match(TOKEN_LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    emitBytes(OP_INVOKE, name);
+    emitByte(argCount);
   } else {
     emitBytes(OP_GET_PROPERTY, name);
   }
@@ -368,8 +391,7 @@ static void dot(bool canAssign) {
 /**
  * infix expression.
  * Push the literal directly onto the chunk for simple
- * values,
- * Not sure yet for str...
+ * values.
  */
 static void literal(bool _canAssign) {
   TokenType operatorType = parser.previous.type;
@@ -463,6 +485,18 @@ static void variable(bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
+static void this_(bool _canAssign) {
+  if (currentClass == NULL) {
+    error("Can't use 'this' outside of a class.");
+    return;
+  }
+  // declare the variable, doesn't directly binds a value to it
+  // this will be done at runtime,
+  // callValue() binds the slot 0 of the method stackframe
+  // to the object instance
+  variable(false);
+}
+
 static void unary(bool _canAssign) {
   TokenType operatorType = parser.previous.type;
 
@@ -525,7 +559,7 @@ ParseRule rules[] = {
         [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
         [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
         [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
-        [TOKEN_THIS] = {NULL, NULL, PREC_NONE},
+        [TOKEN_THIS] = {this_, NULL, PREC_NONE},
         [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
         [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
         [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
@@ -782,6 +816,11 @@ static void block() {
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+/**
+ * Create a new compiler struct,
+ * Compile the function using it, and emyt the instruction into
+ * a 'function' chunk.
+ */
 static void function(FunctionType type) {
   Compiler compiler;
   initCompiler(&compiler, type);
@@ -814,19 +853,57 @@ static void function(FunctionType type) {
 }
 
 /**
+ * Parse a class method definition, and
+ * emit the instructions that bind it to a class object.
+ */
+static void method(void) {
+  // parse method name, store it into constant table
+  consume(TOKEN_IDENTIFIER, "Expect method name.");
+  uint8_t constant = identifierConstant(&parser.previous);
+
+  // parse method body, bind it to a method
+  FunctionType type = TYPE_METHOD;
+  if (parser.previous.length == 4 &&
+      memcmp(parser.previous.start, "init", 4) == 0) {
+    type = TYPE_INITIALIZER;
+  }
+  function(type);
+  emitBytes(OP_METHOD, constant);
+}
+
+/**
  * parse class declaration. (assume "class" has been consumed).
  */
 static void classDeclaration(void) {
+  // parse class name and emit `OP_CLASS` instruction
+  // to build a Class Obj, and push it onto the stack
   consume(TOKEN_IDENTIFIER, "Expect class name.");
+  Token className = parser.previous;
   uint8_t nameConstant = identifierConstant(&parser.previous);
   declareVariable();
 
   emitBytes(OP_CLASS, nameConstant);
   defineVariable(nameConstant);
 
+  // keep track of the current Class we're
+  // compiling (if any)
+  ClassCompiler classCompiler;
+  classCompiler.enclosing = currentClass;
+  currentClass = &classCompiler;
+
+  // parse methods, and emit `OP_METHOD` to build method objects
+  // to do so; we need the variable name on the stack,
+  // this will put in on top of the stack, while we're creating the methods
+  namedVariable(className, false); // tmp
   consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
-  // TODO: rest of the owl
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    method();
+  }
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+  emitByte(OP_POP); // remove the tmp variable (className)
+
+  // restore enclosing class
+  currentClass = currentClass->enclosing;
 }
 
 /**
@@ -964,6 +1041,10 @@ static void returnStatement() {
   if (match(TOKEN_SEMICOLON)) {
     emitReturn();
   } else {
+    if (current->type == TYPE_INITIALIZER) {
+      error("Can't return a value from an initializer.");
+    }
+
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
     emitByte(OP_RETURN);
