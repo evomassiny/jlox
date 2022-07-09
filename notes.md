@@ -91,7 +91,10 @@ Those have no value to anyone but me.
 * the USA says "gray", UK says "grey"
 * a **weak reference** is a reference that doesn't protect the referenced object from being garbage collected, eg: in the
   "mark" phase of a "mark and sweep" GC, weak refs are not dereferenced.
-* in GC land, **throughput** represents the time `running/(running + GCing)`, and **latency** is the longest continuous GC time.
+* in GC land, **throughput** represents the time `running/(running + GC-ing)`, and **latency** is the longest continuous GC time.
 * `class` declaration produces a runtime object, bound to a variable (the class name), this means class types are usual objects.
 * class instances' fields are variables, **properties** are variables + **methods**
 * methods are "bound" to an object instance, in python, this instance is avaible through the method "__self__" attribute
+* `CPython` uses the same trick as `clox` to store its locals: they are stored directly into the stackframe stack.
+  This is what python's `LOAD_FAST` and `STORE_FAST` opcode do, they exchange data between the stack slots and the top of the stack  (`frame->localsplus`).
+  Eg: `LOAD_FAST` is exactly equivalent to `OP_GET_LOCAL`, same goes for `STORE_FAST` and `OP_SET_LOCAL`.

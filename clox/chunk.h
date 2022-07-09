@@ -20,6 +20,7 @@ typedef enum {
   OP_SET_UPVALUE,
   OP_GET_PROPERTY, // load from ?
   OP_SET_PROPERTY,
+  OP_GET_SUPER, // resolve `super.method`
   OP_EQUAL,
   OP_GREATER,
   OP_LESS,
@@ -35,11 +36,13 @@ typedef enum {
   OP_LOOP, // backward jump
   OP_CALL,
   OP_INVOKE,        // call a method (bound to an object)
+  OP_SUPER_INVOKE,  // call a super method (bound to an object)
   OP_CLOSURE,       // push closure onto stack
   OP_CLOSE_UPVALUE, // move local variable onto heap, so it can outlive the its
                     // stackframe, and be referred by closures.
   OP_RETURN,
   OP_CLASS,
+  OP_INHERIT,
   OP_METHOD, // bind a method to a class object
 } OpCode;
 

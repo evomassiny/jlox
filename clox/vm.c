@@ -213,7 +213,8 @@ static bool invoke(ObjString *method, int argCount) {
 
 /**
  * Lookup for a method named `name` in the klass,
- * then bind it to the topmost value of the stack.
+ * then bind it to the topmost value of the stack,
+ * which is conveniently the value `this`.
  */
 static bool bindMethod(ObjClass *klass, ObjString *name) {
   Value method;
@@ -438,6 +439,14 @@ static InterpretResult run() {
       push(value);
       break;
     }
+    case OP_GET_SUPER: {
+      ObjString *name = READ_STRING();
+      ObjClass *superClass = AS_CLASS(pop());
+      if (!bindMethod(superClass, name)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      break;
+    }
     case OP_EQUAL: {
       Value b = pop();
       Value a = pop();
@@ -522,17 +531,39 @@ static InterpretResult run() {
       break;
     }
     case OP_INVOKE: {
+      // Expected in the code:
+      // * the slot id of the method name
+      // * number of arguments
       // Expect on the stack:
-      // * method name (top)
-      // * Number of arguments
-      // * ARGN N
-      // * ...
-      // * ARG 0
       // * obj instance
+      // * ARG 0
+      // * ...
+      // * ARGN N
       ObjString *method = READ_STRING();
       int argCount = READ_BYTE();
       // change stack frame
       if (!invoke(method, argCount)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      // restore stack frame
+      frame = &vm.frames[vm.frameCount - 1];
+      break;
+    }
+    case OP_SUPER_INVOKE: {
+      // Expected in the code:
+      // * the slot id of the method name
+      // * number of arguments
+      // Expect on the stack:
+      // * obj instance
+      // * ARG 0
+      // * ...
+      // * ARGN N
+      // * super class
+      ObjString *method = READ_STRING();
+      int argCount = READ_BYTE();
+      ObjClass *superClass = AS_CLASS(pop());
+      // change stack frame
+      if (!invokeFromClass(superClass, method, argCount)) {
         return INTERPRET_RUNTIME_ERROR;
       }
       // restore stack frame
@@ -589,6 +620,18 @@ static InterpretResult run() {
     case OP_CLASS: {
       // push class value onto stack
       push(OBJ_VAL(newClass(READ_STRING())));
+      break;
+    }
+    case OP_INHERIT: {
+      Value superClass = peek(1);
+      if (!IS_CLASS(superClass)) {
+        runtimeError("Superclass must be a class.");
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      ObjClass *subClass = AS_CLASS(peek(0));
+      // duplicate SuperClass methods into Child ones
+      tableAddAll(&AS_CLASS(superClass)->methods, &subClass->methods);
+      pop(); // pop SubClass
       break;
     }
     case OP_METHOD: {

@@ -80,7 +80,10 @@ typedef struct Compiler { // this is the weird C syntax for self referencing
   int scopeDepth;
 } Compiler;
 
-typedef struct ClassCompiler { struct ClassCompiler *enclosing; } ClassCompiler;
+typedef struct ClassCompiler {
+  struct ClassCompiler *enclosing;
+  bool hasSuperclass;
+} ClassCompiler;
 
 // global parser state.
 Parser parser;
@@ -481,8 +484,60 @@ static void namedVariable(Token name, bool canAssign) {
   }
 }
 
+/**
+ * Emit bytes to LOAD a variable onto the stack,
+ * (use the last parsed token as variable name).
+ */
 static void variable(bool canAssign) {
   namedVariable(parser.previous, canAssign);
+}
+
+/**
+ * Create a "fake" token,
+ * WARNING only use this with strings with
+ * a 'static lifetime: we never free `text`.
+ */
+static Token syntheticToken(const char *text) {
+  Token token;
+  token.start = text;
+  token.length = (int)strlen(text);
+  return token;
+}
+
+/**
+ * Turn a `super.some_method` into:
+ * OP_GET_LOCAL `this`
+ * OP_GET_UPVALUE `super`
+ * OP_GET_SUPER `some_method`
+ *
+ * Or turn a `super.some_method(...)` into:
+ * OP_GET_LOCAL `this`
+ * ...
+ * [ argument expressions ]
+ * ...
+ * OP_SUPER_INVOKE `$arg_count`
+ */
+static void super_(bool _canAssign) {
+  if (currentClass == NULL) {
+    error("Can't use 'super' outside of a class.");
+  } else if (!currentClass->hasSuperclass) {
+    error("Can't use 'super' in a class with no superclass.");
+  }
+  consume(TOKEN_DOT, "Expect '.' after 'super'.");
+  consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
+  uint8_t name = identifierConstant(&parser.previous);
+
+  // load `this` and `super`values on top of stack
+  namedVariable(syntheticToken("this"), false);
+  if (match(TOKEN_LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    namedVariable(syntheticToken("super"), false);
+    emitBytes(OP_SUPER_INVOKE, name);
+    emitByte(argCount);
+  } else {
+    namedVariable(syntheticToken("super"), false);
+    emitBytes(OP_GET_SUPER, name);
+  }
 }
 
 static void this_(bool _canAssign) {
@@ -558,7 +613,7 @@ ParseRule rules[] = {
         [TOKEN_OR] = {NULL, or_, PREC_OR},
         [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
         [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-        [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
+        [TOKEN_SUPER] = {super_, NULL, PREC_NONE},
         [TOKEN_THIS] = {this_, NULL, PREC_NONE},
         [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
         [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
@@ -873,6 +928,11 @@ static void method(void) {
 
 /**
  * parse class declaration. (assume "class" has been consumed).
+ *
+ * Each class method is compiled into a dedicated "chunck", and bound
+ * to the the Class Type instance using the `OP_METHOD` instruction.
+ *
+ * Inheritance is handled using the "OP_INHERIT" instruction.
  */
 static void classDeclaration(void) {
   // parse class name and emit `OP_CLASS` instruction
@@ -889,7 +949,29 @@ static void classDeclaration(void) {
   // compiling (if any)
   ClassCompiler classCompiler;
   classCompiler.enclosing = currentClass;
+  classCompiler.hasSuperclass = false;
   currentClass = &classCompiler;
+
+  // handle inheritance
+  if (match(TOKEN_LESS)) {
+    consume(TOKEN_IDENTIFIER, "Expect superclass name.");
+    // load super class variable
+    variable(false);
+    if (identifiersEqual(&className, &parser.previous)) {
+      error("A class can't inherit from itself");
+    }
+    // add `super` variable, bound to the "lexical" super.
+    beginScope();
+    addLocal(syntheticToken("super"));
+    defineVariable(0);
+
+    // load current class variable
+    namedVariable(className, false);
+    // group those
+    emitByte(OP_INHERIT);
+
+    classCompiler.hasSuperclass = true;
+  }
 
   // parse methods, and emit `OP_METHOD` to build method objects
   // to do so; we need the variable name on the stack,
@@ -901,6 +983,12 @@ static void classDeclaration(void) {
   }
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
   emitByte(OP_POP); // remove the tmp variable (className)
+
+  if (classCompiler.hasSuperclass) {
+    // we created a special scope dedicated
+    // to host the `super` variable.
+    endScope();
+  }
 
   // restore enclosing class
   currentClass = currentClass->enclosing;
