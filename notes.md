@@ -96,5 +96,8 @@ Those have no value to anyone but me.
 * class instances' fields are variables, **properties** are variables + **methods**
 * methods are "bound" to an object instance, in python, this instance is avaible through the method "__self__" attribute
 * `CPython` uses the same trick as `clox` to store its locals: they are stored directly into the stackframe stack.
-  This is what python's `LOAD_FAST` and `STORE_FAST` opcode do, they exchange data between the stack slots and the top of the stack  (`frame->localsplus`).
+  This is what python's `LOAD_FAST` and `STORE_FAST` opcodes do, they exchange data between the stack slots and the top of the stack  (`frame->localsplus`).
   Eg: `LOAD_FAST` is exactly equivalent to `OP_GET_LOCAL`, same goes for `STORE_FAST` and `OP_SET_LOCAL`.
+* `a % (b^2)` is equivalent to `a & (b^2 -1)` as long as `a` and `b` are uints. This makes sense if you tranpose it to decimal
+  `180 % 100` is all the digit after the `1` of `100`.
+* casting bytes without doing any kind of value conversion is called **type punning**

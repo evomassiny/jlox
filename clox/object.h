@@ -16,14 +16,14 @@
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 #define IS_STRING(value) isObjType(value, OBJ_STRING)
 
-#define AS_BOUND_METHOD(value) ((ObjBoundMethod *)(value).as.obj)
-#define AS_CLASS(value) ((ObjClass *)(value).as.obj)
-#define AS_CLOSURE(value) ((ObjClosure *)(value).as.obj)
-#define AS_FUNCTION(value) ((ObjFunction *)(value).as.obj)
-#define AS_INSTANCE(value) ((ObjInstance *)(value).as.obj)
-#define AS_NATIVE(value) (((ObjNative *)(value).as.obj)->function)
-#define AS_STRING(value) ((ObjString *)(value).as.obj)
-#define AS_CSTRING(value) (((ObjString *)(value).as.obj)->chars)
+#define AS_BOUND_METHOD(value) ((ObjBoundMethod *)AS_OBJ(value))
+#define AS_CLASS(value) ((ObjClass *)AS_OBJ(value))
+#define AS_CLOSURE(value) ((ObjClosure *)AS_OBJ(value))
+#define AS_FUNCTION(value) ((ObjFunction *)AS_OBJ(value))
+#define AS_INSTANCE(value) ((ObjInstance *)AS_OBJ(value))
+#define AS_NATIVE(value) (((ObjNative *)AS_OBJ(value))->function)
+#define AS_STRING(value) ((ObjString *)AS_OBJ(value))
+#define AS_CSTRING(value) (((ObjString *)AS_OBJ(value))->chars)
 
 typedef enum {
   OBJ_BOUND_METHOD,
