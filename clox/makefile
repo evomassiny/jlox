@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=-g -W -I.
 OBJ=obj
+INSTALL_PATH=~/.local/bin
 
 
 $(OBJ):
@@ -41,3 +42,9 @@ clean:
 
 format:
 	clang-format -i *.h *.c
+
+install: clox
+	ln $< $(INSTALL_PATH)/clox
+
+uninstall: 
+	rm -rf $(INSTALL_PATH)/clox

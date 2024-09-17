@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 // print compiled opcodes
-#define DEBUG_PRINT_CODE
+// #define DEBUG_PRINT_CODE
 
 // print stack state during execution
 // #define DEBUG_TRACE_EXECUTION

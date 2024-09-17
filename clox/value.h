@@ -50,11 +50,13 @@ static inline Value numToValue(double num) {
 }
 
 // type pun a "double" to a "Value",
-// assumes that the compiler will optimise it away.
 static inline double valueToNum(Value value) {
-  double num;
-  memcpy(&num, &value, sizeof(Value));
-  return num;
+  union {
+    uint64_t bits;
+    double num;
+  } data;
+  data.bits = value;
+  return data.num;
 }
 
 // Type checks
@@ -62,12 +64,13 @@ static inline double valueToNum(Value value) {
 // to a TRUE_VAL
 #define IS_BOOL(value) (((value) | 1) == TRUE_VAL)
 #define IS_NIL(value) ((value) == NIL_VAL)
-#define IS_NUMBER(value) ((value)&QNAN == QNAN)
+#define IS_NUMBER(value) (((value)&QNAN) != QNAN)
 #define IS_OBJ(value) (((value) & (SIGN_BIT | QNAN)) == (SIGN_BIT | QNAN))
 
 // Values to C types
 #define AS_BOOL(value) ((value) == TRUE_VAL)
-#define AS_NUMBER(value) ((double)(value))
+//#define AS_NUMBER(value) ((double)(value))
+#define AS_NUMBER(value) (valueToNum(value))
 #define AS_OBJ(value) ((Obj *)(uintptr_t)((value) & ~(SIGN_BIT | QNAN)))
 
 // C types to Values
